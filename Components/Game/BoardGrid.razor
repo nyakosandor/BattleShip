@@ -1,0 +1,54 @@
+@namespace BattleShip.App.Components.Game
+
+<div class="board-wrapper">
+    <div class="board-grid" style="grid-template-columns: 1.5rem repeat(@Board.Size, 2.4rem);">
+        <div class="board-corner"></div>
+        @for (int x = 0; x < Board.Size; x++)
+        {
+            <div class="board-col-header">@((char)('A' + x))</div>
+        }
+
+        @for (int y = 0; y < Board.Size; y++)
+        {
+            var row = y;
+            <div class="board-row-header">@(row + 1)</div>
+            @for (int x = 0; x < Board.Size; x++)
+            {
+                var coord = new Coordinate(x, row);
+                <BoardCell Coordinate="coord"
+                           View="GetView(coord)"
+                           OnClick="OnCellClick"
+                           OnEnter="OnCellEnter"
+                           OnLeave="OnCellLeave" />
+            }
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public Board Board { get; set; } = default!;
+    [Parameter] public IReadOnlySet<Coordinate>? PreviewCoordinates { get; set; }
+    [Parameter] public bool PreviewValid { get; set; }
+    [Parameter] public bool HideShips { get; set; }
+    [Parameter] public EventCallback<Coordinate> OnCellClick { get; set; }
+    [Parameter] public EventCallback<Coordinate> OnCellEnter { get; set; }
+    [Parameter] public EventCallback<Coordinate> OnCellLeave { get; set; }
+
+    private CellView GetView(Coordinate coord)
+    {
+        if (PreviewCoordinates is not null && PreviewCoordinates.Contains(coord))
+        {
+            return PreviewValid ? CellView.PreviewValid : CellView.PreviewInvalid;
+        }
+
+        var cell = Board[coord];
+        return cell.State switch
+        {
+            CellState.Ship when HideShips => CellView.Empty,
+            CellState.Ship => CellView.Ship,
+            CellState.Hit => CellView.Hit,
+            CellState.Miss => CellView.Miss,
+            _ => CellView.Empty,
+        };
+    }
+}

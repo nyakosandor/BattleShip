@@ -9,7 +9,7 @@ public sealed class GameEngine : IGameEngine
         ShipType type,
         Orientation orientation)
     {
-        int length = (int)type;
+        int length = type.Length();
         var coords = new Coordinate[length];
         for (int i = 0; i < length; i++)
         {
@@ -20,7 +20,7 @@ public sealed class GameEngine : IGameEngine
         return coords;
     }
 
-    public PlacementResult TryPlaceShip(
+    public PlacementResult ValidatePlacement(
         Board board,
         ShipType type,
         Coordinate origin,
@@ -51,6 +51,22 @@ public sealed class GameEngine : IGameEngine
             }
         }
 
+        return PlacementResult.Ok();
+    }
+
+    public PlacementResult TryPlaceShip(
+        Board board,
+        ShipType type,
+        Coordinate origin,
+        Orientation orientation)
+    {
+        var validation = ValidatePlacement(board, type, origin, orientation);
+        if (!validation.Success)
+        {
+            return validation;
+        }
+
+        var coords = BuildShipCoordinates(origin, type, orientation);
         var ship = new Ship(type, orientation, coords);
         board.AddShip(ship);
         return PlacementResult.Ok();

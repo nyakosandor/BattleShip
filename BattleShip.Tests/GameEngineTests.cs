@@ -108,6 +108,31 @@ public class GameEngineTests
         Assert.True(result.Success);
     }
 
+    [Fact]
+    public void ValidatePlacement_DoesNotMutateBoard()
+    {
+        var board = new Board();
+
+        var result = _engine.ValidatePlacement(board, ShipType.Carrier, new Coordinate(0, 0), Orientation.Horizontal);
+
+        Assert.True(result.Success);
+        Assert.Empty(board.Ships);
+        Assert.Equal(CellState.Empty, board[0, 0].State);
+    }
+
+    [Fact]
+    public void ValidatePlacement_ReportsOverlapWithoutMutating()
+    {
+        var board = new Board();
+        _engine.TryPlaceShip(board, ShipType.Destroyer, new Coordinate(0, 0), Orientation.Horizontal);
+
+        var result = _engine.ValidatePlacement(board, ShipType.Cruiser, new Coordinate(0, 0), Orientation.Horizontal);
+
+        Assert.False(result.Success);
+        Assert.Equal(PlacementError.Overlaps, result.Error);
+        Assert.Single(board.Ships);
+    }
+
     // ---------- Shot processing ----------
 
     [Fact]

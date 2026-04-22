@@ -1,0 +1,28 @@
+@page "/lan"
+@inject NavigationManager Nav
+
+<PageTitle>LAN Game</PageTitle>
+
+<div class="coming-soon">
+    <h1>Host / Join LAN Game</h1>
+    <p>LAN multiplayer is coming in a later phase. For now, set up your fleet and play against the AI.</p>
+    <button type="button" class="btn btn-primary" @onclick='() => Nav.NavigateTo("/")'>
+        Back to menu
+    </button>
+</div>
+
+<style>
+    .coming-soon {
+        max-width: 520px;
+        padding-top: 1rem;
+    }
+
+    .coming-soon h1 {
+        color: #1e3f66;
+    }
+
+    .coming-soon p {
+        color: #556677;
+        margin-bottom: 1.5rem;
+    }
+</style>

@@ -18,6 +18,7 @@ namespace BattleShip.App
             builder.Services.AddMauiBlazorWebView();
 
             builder.Services.AddSingleton<IGameEngine, GameEngine>();
+            builder.Services.AddSingleton<IFleetRandomizer, FleetRandomizer>();
 
 #if DEBUG
     		builder.Services.AddBlazorWebViewDeveloperTools();

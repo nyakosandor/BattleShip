@@ -17,7 +17,7 @@ public sealed class Ship
     {
         Type = type;
         Orientation = orientation;
-        Length = (int)type;
+        Length = type.Length();
 
         Coordinates = coordinates.ToArray();
 

@@ -1,0 +1,199 @@
+@page "/setup"
+@inject IGameEngine Engine
+@inject IFleetRandomizer Randomizer
+@inject NavigationManager Nav
+
+<PageTitle>Fleet Setup</PageTitle>
+
+<div class="setup-page">
+    <div class="setup-header">
+        <h1>Deploy your fleet</h1>
+        <p class="subtitle">Pick a ship from the palette, then tap a square to drop its bow. Rotate the ship to switch between horizontal and vertical placement.</p>
+    </div>
+
+    <div class="setup-body">
+        <div class="setup-board">
+            <BoardGrid Board="_board"
+                       PreviewCoordinates="_preview"
+                       PreviewValid="_previewValid"
+                       OnCellClick="HandleCellClick"
+                       OnCellEnter="HandleCellEnter"
+                       OnCellLeave="HandleCellLeave" />
+
+            <div class="setup-status">
+                @if (!string.IsNullOrEmpty(_statusMessage))
+                {
+                    <div class="alert @(_statusIsError ? "alert-danger" : "alert-info") py-2 mb-0">
+                        @_statusMessage
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="setup-sidebar">
+            <ShipPalette Orientation="_orientation"
+                         SelectedShipType="_selected"
+                         PlacedShipTypes="_placedTypes"
+                         OnSelect="HandleSelect"
+                         OnToggleOrientation="ToggleOrientation" />
+
+            <div class="setup-actions">
+                <button type="button" class="btn btn-primary w-100 mb-2" @onclick="AutoDeploy">
+                    Auto-Deploy
+                </button>
+                <button type="button" class="btn btn-outline-secondary w-100 mb-2" @onclick="ClearBoard">
+                    Clear Board
+                </button>
+                <button type="button"
+                        class="btn btn-success w-100"
+                        disabled="@(!AllShipsPlaced)"
+                        @onclick="Ready">
+                    Ready (@_board.Ships.Count / @Fleet.StandardComposition.Count)
+                </button>
+            </div>
+
+            <div class="setup-help">
+                <strong>Tip:</strong> Click the orientation button (or a placed ship) to flip between horizontal and vertical.
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private Board _board = new();
+    private Orientation _orientation = Orientation.Horizontal;
+    private ShipType? _selected;
+    private HashSet<ShipType> _placedTypes = new();
+
+    private HashSet<Coordinate>? _preview;
+    private bool _previewValid;
+
+    private string? _statusMessage;
+    private bool _statusIsError;
+
+    protected override void OnInitialized()
+    {
+        _selected = Fleet.StandardComposition.First();
+    }
+
+    private bool AllShipsPlaced => _placedTypes.Count == Fleet.StandardComposition.Count;
+
+    private void HandleSelect(ShipType type)
+    {
+        _selected = type;
+        ClearPreview();
+    }
+
+    private void ToggleOrientation()
+    {
+        _orientation = _orientation == Orientation.Horizontal
+            ? Orientation.Vertical
+            : Orientation.Horizontal;
+        ClearPreview();
+    }
+
+    private void HandleCellEnter(Coordinate coord)
+    {
+        if (_selected is not ShipType type)
+        {
+            _preview = null;
+            return;
+        }
+
+        var coords = Engine.BuildShipCoordinates(coord, type, _orientation);
+        _preview = coords.ToHashSet();
+        _previewValid = Engine.ValidatePlacement(_board, type, coord, _orientation).Success;
+    }
+
+    private void HandleCellLeave(Coordinate _)
+    {
+        ClearPreview();
+    }
+
+    private void HandleCellClick(Coordinate coord)
+    {
+        if (_selected is not ShipType type)
+        {
+            SetStatus("Pick a ship from the palette first.", isError: true);
+            return;
+        }
+
+        var result = Engine.TryPlaceShip(_board, type, coord, _orientation);
+        if (!result.Success)
+        {
+            SetStatus(FormatError(result.Error), isError: true);
+            return;
+        }
+
+        _placedTypes.Add(type);
+        _selected = Fleet.StandardComposition.FirstOrDefault(t => !_placedTypes.Contains(t));
+        if (_selected is null)
+        {
+            SetStatus("Fleet deployed. Press Ready when you're set.", isError: false);
+        }
+        else
+        {
+            SetStatus($"Placed {type.DisplayName()}. Next: {_selected.Value.DisplayName()}.", isError: false);
+        }
+
+        ClearPreview();
+    }
+
+    private void AutoDeploy()
+    {
+        ClearBoardState();
+        if (Randomizer.AutoDeploy(_board))
+        {
+            foreach (var type in Fleet.StandardComposition)
+            {
+                _placedTypes.Add(type);
+            }
+            _selected = null;
+            SetStatus("Auto-deployed a random legal fleet.", isError: false);
+        }
+        else
+        {
+            SetStatus("Auto-deploy failed. Please try again.", isError: true);
+        }
+        ClearPreview();
+    }
+
+    private void ClearBoard()
+    {
+        ClearBoardState();
+        _selected = Fleet.StandardComposition.First();
+        SetStatus("Board cleared.", isError: false);
+        ClearPreview();
+    }
+
+    private void Ready()
+    {
+        // Phase 3 will wire this up to actual gameplay. For now, return to menu.
+        Nav.NavigateTo("/");
+    }
+
+    private void ClearBoardState()
+    {
+        _board = new Board();
+        _placedTypes.Clear();
+    }
+
+    private void ClearPreview()
+    {
+        _preview = null;
+    }
+
+    private void SetStatus(string message, bool isError)
+    {
+        _statusMessage = message;
+        _statusIsError = isError;
+    }
+
+    private static string FormatError(PlacementError error) => error switch
+    {
+        PlacementError.OutOfBounds => "That placement runs off the board.",
+        PlacementError.Overlaps => "That spot overlaps another ship.",
+        PlacementError.DuplicateShipType => "That ship has already been placed.",
+        _ => "Placement rejected.",
+    };
+}

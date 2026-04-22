@@ -1,0 +1,55 @@
+.setup-page {
+    max-width: 1000px;
+}
+
+.setup-header h1 {
+    color: #1e3f66;
+    margin-bottom: 0.25rem;
+}
+
+.setup-header .subtitle {
+    color: #556677;
+    margin-bottom: 1.25rem;
+}
+
+.setup-body {
+    display: flex;
+    gap: 2rem;
+    flex-wrap: wrap;
+    align-items: flex-start;
+}
+
+.setup-board {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.setup-status {
+    min-height: 2.5rem;
+}
+
+.setup-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    width: 18rem;
+}
+
+.setup-actions {
+    display: flex;
+    flex-direction: column;
+    padding: 0.75rem;
+    background: #f5f8fb;
+    border: 1px solid #d6dee7;
+    border-radius: 8px;
+}
+
+.setup-help {
+    font-size: 0.8rem;
+    color: #6d7b89;
+    background: #fffceb;
+    border: 1px solid #f3e5a3;
+    border-radius: 6px;
+    padding: 0.5rem 0.75rem;
+}

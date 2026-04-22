@@ -1,5 +1,26 @@
 ﻿@page "/"
+@inject NavigationManager Nav
 
-<h1>Hello, world!</h1>
+<PageTitle>Battleship</PageTitle>
 
-Welcome to your new app.
+<div class="menu-page">
+    <h1 class="menu-title">Battleship</h1>
+    <p class="menu-subtitle">A classic naval strategy duel. Deploy your fleet, then sink your opponent's.</p>
+
+    <div class="menu-list">
+        <button type="button" class="menu-item" @onclick='() => Nav.NavigateTo("/setup")'>
+            <span class="menu-item-title">Single Player <span class="menu-item-badge">vs AI</span></span>
+            <span class="menu-item-desc">Play a solo match against a computer opponent.</span>
+        </button>
+
+        <button type="button" class="menu-item" @onclick='() => Nav.NavigateTo("/lan")'>
+            <span class="menu-item-title">Host / Join LAN Game</span>
+            <span class="menu-item-desc">Face off against a friend on the same network.</span>
+        </button>
+
+        <button type="button" class="menu-item menu-item-secondary" @onclick='() => Nav.NavigateTo("/setup")'>
+            <span class="menu-item-title">Fleet Setup</span>
+            <span class="menu-item-desc">Try the deployment board on its own.</span>
+        </button>
+    </div>
+</div>
