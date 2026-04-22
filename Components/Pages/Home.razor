@@ -1,5 +1,31 @@
 ﻿@page "/"
+@inject NavigationManager Nav
 
-<h1>Hello, world!</h1>
+<PageTitle>Battleship</PageTitle>
 
-Welcome to your new app.
+<MudStack Spacing="6" Class="mx-auto" Style="max-width: 560px;">
+    <div>
+        <MudText Typo="Typo.h3" Color="Color.Primary" GutterBottom="true">Battleship</MudText>
+        <MudText Typo="Typo.body1" Color="Color.Default">
+            A classic naval strategy duel. Deploy your fleet, then sink your opponent's.
+        </MudText>
+    </div>
+
+    <MudStack Spacing="3">
+        <MenuTile Icon="@Icons.Material.Filled.SmartToy"
+                  Title="Single Player"
+                  Caption="vs AI"
+                  Description="Play a solo match against a computer opponent."
+                  OnClick="@(() => Nav.NavigateTo("/setup"))" />
+
+        <MenuTile Icon="@Icons.Material.Filled.Wifi"
+                  Title="Host / Join LAN Game"
+                  Description="Face off against a friend on the same network."
+                  OnClick="@(() => Nav.NavigateTo("/lan"))" />
+
+        <MenuTile Icon="@Icons.Material.Filled.GridOn"
+                  Title="Fleet Setup"
+                  Description="Try the deployment board on its own."
+                  OnClick="@(() => Nav.NavigateTo("/setup"))" />
+    </MudStack>
+</MudStack>

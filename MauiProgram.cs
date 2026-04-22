@@ -1,4 +1,8 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using BattleShip.App.Services;
+using BattleShip.Core.Services;
+using BattleShip.LanServer;
+using Microsoft.Extensions.Logging;
+using MudBlazor.Services;
 
 namespace BattleShip.App
 {
@@ -15,6 +19,14 @@ namespace BattleShip.App
                 });
 
             builder.Services.AddMauiBlazorWebView();
+            builder.Services.AddMudServices();
+
+            builder.Services.AddSingleton<IGameEngine, GameEngine>();
+            builder.Services.AddSingleton<IFleetRandomizer, FleetRandomizer>();
+            builder.Services.AddSingleton<IAiPlayerFactory, HuntTargetAiFactory>();
+            builder.Services.AddSingleton<GameHandoff>();
+            builder.Services.AddSingleton<ILanHost, LanHost>();
+            builder.Services.AddSingleton<LanClientState>();
 
 #if DEBUG
     		builder.Services.AddBlazorWebViewDeveloperTools();

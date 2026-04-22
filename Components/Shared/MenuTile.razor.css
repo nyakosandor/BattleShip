@@ -1,0 +1,9 @@
+.menu-tile {
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.08s ease;
+}
+
+    .menu-tile:hover {
+        border-color: var(--mud-palette-primary);
+        box-shadow: 0 4px 14px rgba(30, 63, 102, 0.12);
+        transform: translateY(-1px);
+    }

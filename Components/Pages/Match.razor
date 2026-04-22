@@ -1,0 +1,311 @@
+@page "/match"
+@using System.Threading
+@using BattleShip.App.Services
+@using BattleShip.Core.Domain
+@using BattleShip.LanServer
+@using BattleShip.LanServer.Client
+@using BattleShip.LanServer.Contracts
+@inject LanClientState ClientState
+@inject ILanHost LanHost
+@inject NavigationManager Nav
+@implements IAsyncDisposable
+
+<PageTitle>LAN Match</PageTitle>
+
+@if (_initError is not null)
+{
+    <MudStack Spacing="3" Class="mx-auto" Style="max-width: 520px;">
+        <MudAlert Severity="Severity.Error" Variant="Variant.Filled">@_initError</MudAlert>
+        <MudButton Variant="Variant.Outlined"
+                   Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.ArrowBack"
+                   OnClick="ReturnToMenu">
+            Back to main menu
+        </MudButton>
+    </MudStack>
+}
+else if (_projection is null)
+{
+    <MudStack AlignItems="AlignItems.Center" Class="my-12" Spacing="3">
+        <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+        <MudText Typo="Typo.body1" Color="Color.Default">Connecting to the match...</MudText>
+    </MudStack>
+}
+else
+{
+    <MudStack Spacing="5">
+        <div>
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="flex-wrap">
+                <MudText Typo="Typo.h4" Color="Color.Primary">@StatusTitle</MudText>
+                @if (!string.IsNullOrEmpty(_endpointBadge))
+                {
+                    <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Outlined">
+                        @_endpointBadge
+                    </MudChip>
+                }
+            </MudStack>
+            <MudText Typo="Typo.body2" Color="Color.Default">@StatusSubtitle</MudText>
+        </div>
+
+        @if (!string.IsNullOrEmpty(_actionError))
+        {
+            <MudAlert Severity="Severity.Warning" Dense="true" Variant="Variant.Text">
+                @_actionError
+            </MudAlert>
+        }
+
+        <MudGrid Spacing="4" Justify="Justify.Center">
+            <MudItem xs="12" md="6">
+                <MudStack Spacing="2" AlignItems="AlignItems.Center">
+                    <MudText Typo="Typo.overline" Color="Color.Primary">Enemy waters — @OpponentName</MudText>
+                    <StateBoardGrid Size="BoardSize"
+                                    Hits="_projection.OpponentHits"
+                                    Misses="_projection.OpponentMisses"
+                                    ShipCells="_projection.OpponentVisibleShips"
+                                    OnCellClick="HandleFireAsync" />
+                    <MudText Typo="Typo.caption" Color="Color.Default">
+                        Ships remaining: @(_projection.OpponentPublic?.ShipsRemaining ?? Fleet.StandardComposition.Count) / @Fleet.StandardComposition.Count
+                    </MudText>
+                </MudStack>
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudStack Spacing="2" AlignItems="AlignItems.Center">
+                    <MudText Typo="Typo.overline" Color="Color.Primary">Your fleet — @SelfName</MudText>
+                    <StateBoardGrid Size="BoardSize"
+                                    Hits="_projection.SelfHits"
+                                    Misses="_projection.SelfMisses"
+                                    ShipCells="_projection.SelfShipCells" />
+                    <MudText Typo="Typo.caption" Color="Color.Default">
+                        Ships remaining: @(_projection.SelfPublic?.ShipsRemaining ?? Fleet.StandardComposition.Count) / @Fleet.StandardComposition.Count
+                    </MudText>
+                </MudStack>
+            </MudItem>
+        </MudGrid>
+
+        <ShotLogPaper Entries="_log" />
+    </MudStack>
+
+    @if (_projection.State.Phase == GamePhase.Finished)
+    {
+        <EndgameDialog Title="@EndgameTitle"
+                       Detail="@EndgameDetail"
+                       IsVictory="@(_projection.State.Winner == _client?.Role)">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="ReturnToMenu">Main Menu</MudButton>
+        </EndgameDialog>
+    }
+}
+
+@code {
+    private const int BoardSize = Board.DefaultSize;
+    private static readonly TimeSpan ActivePollInterval = TimeSpan.FromSeconds(1);
+    private static readonly TimeSpan IdlePollInterval = TimeSpan.FromSeconds(2.5);
+    private static readonly TimeSpan NetworkForfeitThreshold = TimeSpan.FromSeconds(5);
+
+    private readonly CancellationTokenSource _cts = new();
+    private readonly OpponentFireDiff _fireDiff = new();
+    private readonly List<string> _log = new();
+
+    private Task? _pollLoop;
+    private ILanClient? _client;
+    private MatchStateProjection? _projection;
+    private string? _initError;
+    private string? _actionError;
+    private string? _endpointBadge;
+
+    private DateTime _lastSuccessfulPollUtc = DateTime.UtcNow;
+    private bool _hostForfeitAlreadyHandled;
+
+    protected override void OnInitialized()
+    {
+        _client = ClientState.Client;
+        if (_client is null)
+        {
+            _initError = "No active LAN connection. Return to the main menu to host or join a game.";
+            return;
+        }
+
+        _endpointBadge = _client is LocalLanClient
+            ? (LanHost.IsRunning ? $"Hosting: {LanHost.BaseAddress}" : null)
+            : $"Connected to {ClientState.DisplayEndpoint ?? _client.BaseAddress}";
+
+        _pollLoop = Task.Run(() => PollLoopAsync(_cts.Token));
+    }
+
+    private async Task PollLoopAsync(CancellationToken ct)
+    {
+        while (!ct.IsCancellationRequested)
+        {
+            if (_client is null) return;
+
+            var result = await _client.GetStateAsync(ct).ConfigureAwait(false);
+
+            if (result.Success && result.Value is not null)
+            {
+                _lastSuccessfulPollUtc = DateTime.UtcNow;
+                await InvokeAsync(() =>
+                {
+                    ApplyState(result.Value);
+                    StateHasChanged();
+                });
+            }
+            else if (result.NetworkError)
+            {
+                var sinceOk = DateTime.UtcNow - _lastSuccessfulPollUtc;
+                if (sinceOk >= NetworkForfeitThreshold && !_hostForfeitAlreadyHandled)
+                {
+                    _hostForfeitAlreadyHandled = true;
+                    await InvokeAsync(() =>
+                    {
+                        _initError = "Opponent disconnected. The match has been forfeited.";
+                        StateHasChanged();
+                    });
+                    return;
+                }
+            }
+            else
+            {
+                await InvokeAsync(() =>
+                {
+                    _actionError = $"Server refused state request: {result.Message}";
+                    StateHasChanged();
+                });
+            }
+
+            var delay = ChoosePollInterval();
+            try { await Task.Delay(delay, ct).ConfigureAwait(false); }
+            catch (OperationCanceledException) { return; }
+        }
+    }
+
+    private TimeSpan ChoosePollInterval()
+    {
+        var state = _projection?.State;
+        if (state is null) return ActivePollInterval;
+        if (state.Phase == GamePhase.Finished) return IdlePollInterval;
+        if (state.Phase == GamePhase.InProgress)
+        {
+            return state.Turn == _client!.Role ? IdlePollInterval : ActivePollInterval;
+        }
+        return ActivePollInterval;
+    }
+
+    private void ApplyState(StateResponse state)
+    {
+        _actionError = null;
+        _projection = MatchStateProjection.From(state, _client!.Role);
+
+        foreach (var line in _fireDiff.Diff(_projection))
+        {
+            _log.Insert(0, line);
+        }
+    }
+
+    private async Task HandleFireAsync(Coordinate coord)
+    {
+        if (_client is null || _projection is null) return;
+        if (_projection.State.Phase != GamePhase.InProgress) return;
+        if (_projection.State.Turn != _client.Role) return;
+
+        var result = await _client.FireAsync(new CoordinateDto(coord.X, coord.Y), _cts.Token).ConfigureAwait(true);
+        if (!result.Success)
+        {
+            _actionError = result.Message ?? "Shot rejected.";
+            StateHasChanged();
+            return;
+        }
+
+        if (result.Value is FireResponse fire)
+        {
+            _log.Insert(0, ShotLogFormatter.PlayerLanShot(fire));
+        }
+
+        var refreshed = await _client.GetStateAsync(_cts.Token).ConfigureAwait(true);
+        if (refreshed.Success && refreshed.Value is not null)
+        {
+            ApplyState(refreshed.Value);
+            _lastSuccessfulPollUtc = DateTime.UtcNow;
+        }
+        StateHasChanged();
+    }
+
+    private string OpponentName => _projection?.OpponentPublic?.Name ?? "Opponent";
+    private string SelfName => _projection?.SelfPublic?.Name ?? _client?.PlayerName ?? "You";
+
+    private string StatusTitle
+    {
+        get
+        {
+            var state = _projection?.State;
+            if (state is null) return "Connecting...";
+            if (state.Phase == GamePhase.Finished)
+            {
+                if (state.EndReason == EndReason.Forfeit)
+                {
+                    return state.Winner == _client?.Role ? "Opponent disconnected" : "Forfeit";
+                }
+                return state.Winner == _client?.Role ? "Victory!" : "Defeat";
+            }
+            if (state.Phase == GamePhase.WaitingForClient) return "Waiting for opponent";
+            if (state.Phase == GamePhase.Deploying) return "Opponent is deploying";
+            return state.Turn == _client?.Role ? "Your turn" : "Opponent's turn";
+        }
+    }
+
+    private string StatusSubtitle => _projection?.State.Phase switch
+    {
+        GamePhase.WaitingForClient => "Share your host address so a friend can join.",
+        GamePhase.Deploying => "They're placing their fleet. The match will start automatically.",
+        GamePhase.InProgress when _projection!.State.Turn == _client?.Role => "Click a cell on the enemy waters to fire.",
+        GamePhase.InProgress => "Hold tight — the opponent is taking aim.",
+        GamePhase.Finished => "Match complete.",
+        _ => string.Empty,
+    };
+
+    private string EndgameTitle => _projection?.State.EndReason switch
+    {
+        EndReason.Forfeit when _projection!.State.Winner == _client?.Role => "Opponent Disconnected",
+        EndReason.Forfeit => "Match Forfeited",
+        EndReason.FleetDestroyed when _projection!.State.Winner == _client?.Role => "Victory!",
+        EndReason.FleetDestroyed => "Defeat",
+        _ => "Match complete",
+    };
+
+    private string EndgameDetail => _projection?.State.EndReason switch
+    {
+        EndReason.Forfeit when _projection!.State.Winner == _client?.Role => "Your opponent left the match. The win is yours.",
+        EndReason.Forfeit => "You forfeited the match.",
+        EndReason.FleetDestroyed when _projection!.State.Winner == _client?.Role => "You sank the entire enemy fleet.",
+        EndReason.FleetDestroyed => "Your fleet has been destroyed.",
+        _ => string.Empty,
+    };
+
+    private async Task ReturnToMenu()
+    {
+        await TeardownAsync();
+        Nav.NavigateTo("/");
+    }
+
+    public async ValueTask DisposeAsync() => await TeardownAsync();
+
+    private async Task TeardownAsync()
+    {
+        try { _cts.Cancel(); } catch { }
+        if (_pollLoop is not null)
+        {
+            try { await _pollLoop.ConfigureAwait(false); }
+            catch (OperationCanceledException) { }
+            catch { }
+        }
+
+        await ClientState.DisposeAndClearAsync();
+
+        if (LanHost.IsRunning)
+        {
+            try { await LanHost.StopAsync().ConfigureAwait(false); }
+            catch { }
+        }
+
+        _cts.Dispose();
+    }
+}

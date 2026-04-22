@@ -1,0 +1,41 @@
+@namespace BattleShip.App.Components.Game
+
+<button type="button"
+        class="board-cell @CssClass"
+        @onclick="HandleClick"
+        @onmouseenter="HandleEnter"
+        @onmouseleave="HandleLeave"
+        aria-label="@AriaLabel">
+</button>
+
+@code {
+    [Parameter, EditorRequired] public Coordinate Coordinate { get; set; }
+    [Parameter, EditorRequired] public CellView View { get; set; }
+    [Parameter] public EventCallback<Coordinate> OnClick { get; set; }
+    [Parameter] public EventCallback<Coordinate> OnEnter { get; set; }
+    [Parameter] public EventCallback<Coordinate> OnLeave { get; set; }
+
+    private string CssClass => View switch
+    {
+        CellView.Empty => "cell-empty",
+        CellView.Ship => "cell-ship",
+        CellView.Hit => "cell-hit",
+        CellView.Miss => "cell-miss",
+        CellView.PreviewValid => "cell-preview-ok",
+        CellView.PreviewInvalid => "cell-preview-bad",
+        _ => "cell-empty",
+    };
+
+    private string AriaLabel
+    {
+        get
+        {
+            var col = (char)('A' + Coordinate.X);
+            return $"{col}{Coordinate.Y + 1}";
+        }
+    }
+
+    private Task HandleClick() => OnClick.InvokeAsync(Coordinate);
+    private Task HandleEnter() => OnEnter.InvokeAsync(Coordinate);
+    private Task HandleLeave() => OnLeave.InvokeAsync(Coordinate);
+}

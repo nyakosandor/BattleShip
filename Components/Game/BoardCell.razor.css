@@ -1,0 +1,48 @@
+.board-cell {
+    width: var(--cell-size);
+    height: var(--cell-size);
+    padding: 0;
+    border: 1px solid var(--color-water-border);
+    border-radius: 2px;
+    cursor: pointer;
+    transition: transform 0.05s ease, background-color 0.1s ease;
+    background-clip: padding-box;
+}
+
+.board-cell:hover {
+    transform: scale(1.04);
+}
+
+.board-cell:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 1px;
+}
+
+.cell-empty {
+    background-color: var(--color-water);
+}
+
+.cell-ship {
+    background-color: var(--color-ship);
+    border-color: var(--color-ship-border);
+}
+
+.cell-hit {
+    background-color: var(--color-hit);
+    border-color: var(--color-hit-border);
+}
+
+.cell-miss {
+    background-color: var(--color-miss);
+    background-image: radial-gradient(circle, var(--color-miss-dot) 0 20%, transparent 22%);
+}
+
+.cell-preview-ok {
+    background-color: var(--color-preview-ok);
+    border-color: var(--color-preview-ok-border);
+}
+
+.cell-preview-bad {
+    background-color: var(--color-preview-bad);
+    border-color: var(--color-preview-bad-border);
+}

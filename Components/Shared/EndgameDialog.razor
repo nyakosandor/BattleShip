@@ -1,0 +1,30 @@
+@namespace BattleShip.App.Components.Shared
+
+@* Simple endgame card rendered over a dark scrim. Uses MudOverlay + MudPaper
+   instead of MudDialog so the parent can own visibility via its own state. *@
+
+<MudOverlay Visible="true" DarkBackground="true" ZIndex="1500">
+    <MudPaper Elevation="12" Class="pa-8 endgame-panel text-center">
+        <MudIcon Icon="@(IsVictory ? Icons.Material.Filled.EmojiEvents : Icons.Material.Filled.SentimentDissatisfied)"
+                 Color="@(IsVictory ? Color.Success : Color.Error)"
+                 Size="Size.Large"
+                 Class="mb-2" />
+        <MudText Typo="Typo.h4" Class="mb-2" Color="@(IsVictory ? Color.Success : Color.Error)">
+            @Title
+        </MudText>
+        @if (!string.IsNullOrEmpty(Detail))
+        {
+            <MudText Typo="Typo.body1" Color="Color.Default" Class="mb-5">@Detail</MudText>
+        }
+        <MudStack Row="true" Justify="Justify.Center" Spacing="2">
+            @ChildContent
+        </MudStack>
+    </MudPaper>
+</MudOverlay>
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
+    [Parameter] public string? Detail { get; set; }
+    [Parameter] public bool IsVictory { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

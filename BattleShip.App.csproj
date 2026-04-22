@@ -46,6 +46,10 @@
         <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">24.0</SupportedOSPlatformVersion>
         <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</SupportedOSPlatformVersion>
         <TargetPlatformMinVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</TargetPlatformMinVersion>
+
+        <!-- The SDK globs sources from the project directory; sibling projects live under the same repo root,
+             so exclude their folders to prevent duplicate compilation. -->
+        <DefaultItemExcludes>$(DefaultItemExcludes);BattleShip.Core\**;BattleShip.LanServer\**;BattleShip.Tests\**</DefaultItemExcludes>
     </PropertyGroup>
 
     <ItemGroup>
@@ -70,6 +74,12 @@
         <PackageReference Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
         <PackageReference Include="Microsoft.AspNetCore.Components.WebView.Maui" Version="$(MauiVersion)" />
         <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="10.0.0" />
+        <PackageReference Include="MudBlazor" Version="9.3.0" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="BattleShip.Core\BattleShip.Core.csproj" />
+        <ProjectReference Include="BattleShip.LanServer\BattleShip.LanServer.csproj" />
     </ItemGroup>
 
 </Project>

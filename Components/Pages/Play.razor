@@ -1,0 +1,242 @@
+@page "/play"
+@using System.Threading
+@using BattleShip.App.Services
+@inject IGameEngine Engine
+@inject IFleetRandomizer Randomizer
+@inject IAiPlayerFactory AiFactory
+@inject GameHandoff Handoff
+@inject NavigationManager Nav
+@implements IDisposable
+
+<PageTitle>Battleship</PageTitle>
+
+@if (_playerBoard is null || _aiBoard is null)
+{
+    <MudStack AlignItems="AlignItems.Center" Class="my-12" Spacing="3">
+        <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+        <MudText Typo="Typo.body1" Color="Color.Default">Preparing your fleet...</MudText>
+    </MudStack>
+}
+else
+{
+    <MudStack Spacing="5">
+        <div>
+            <MudText Typo="Typo.h4" Color="Color.Primary">@StatusTitle</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Default">@StatusSubtitle</MudText>
+        </div>
+
+        <MudGrid Spacing="4" Justify="Justify.Center">
+            <MudItem xs="12" md="6">
+                <MudStack Spacing="2" AlignItems="AlignItems.Center">
+                    <MudText Typo="Typo.overline" Color="Color.Primary">Enemy waters</MudText>
+                    <BoardGrid Board="_aiBoard"
+                               HideShips="true"
+                               OnCellClick="HandlePlayerShot" />
+                    <MudText Typo="Typo.caption" Color="Color.Default">
+                        Ships remaining: @ShipsRemaining(_aiBoard) / @Fleet.StandardComposition.Count
+                    </MudText>
+                </MudStack>
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudStack Spacing="2" AlignItems="AlignItems.Center">
+                    <MudText Typo="Typo.overline" Color="Color.Primary">Your fleet</MudText>
+                    <BoardGrid Board="_playerBoard" />
+                    <MudText Typo="Typo.caption" Color="Color.Default">
+                        Ships remaining: @ShipsRemaining(_playerBoard) / @Fleet.StandardComposition.Count
+                    </MudText>
+                </MudStack>
+            </MudItem>
+        </MudGrid>
+
+        @if (!string.IsNullOrEmpty(_sunkMessage))
+        {
+            <MudAlert Severity="@(_sunkByPlayer ? Severity.Success : Severity.Error)"
+                      Variant="Variant.Filled"
+                      Dense="true"
+                      Class="mx-auto"
+                      Style="max-width: 480px;">
+                @_sunkMessage
+            </MudAlert>
+        }
+
+        <ShotLogPaper Entries="_log" />
+    </MudStack>
+
+    @if (_winner is not null)
+    {
+        <EndgameDialog Title="@(_winner == Winner.Player ? "Victory!" : "Defeat")"
+                       Detail="@(_winner == Winner.Player
+                           ? "You sank the enemy fleet."
+                           : "Your fleet has been destroyed.")"
+                       IsVictory="@(_winner == Winner.Player)">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="PlayAgain">Play Again</MudButton>
+            <MudButton Variant="Variant.Outlined" Color="Color.Default" OnClick="BackToMenu">Main Menu</MudButton>
+        </EndgameDialog>
+    }
+}
+
+@code {
+    private enum Turn { Player, Ai }
+    private enum Winner { Player, Ai }
+
+    private const int AiDelayMsMin = 1000;
+    private const int AiDelayMsMax = 2000;
+    private const int SunkBannerMs = 2200;
+
+    private Board? _playerBoard;
+    private Board? _aiBoard;
+    private IAiPlayer? _ai;
+    private Turn _turn = Turn.Player;
+    private Winner? _winner;
+    private bool _aiThinking;
+    private readonly List<string> _log = new();
+
+    private string? _sunkMessage;
+    private bool _sunkByPlayer;
+    private int _sunkBannerToken;
+
+    private readonly CancellationTokenSource _cts = new();
+    private readonly Random _turnRng = new();
+
+    protected override void OnInitialized()
+    {
+        var board = Handoff.Take();
+        if (board is null)
+        {
+            Nav.NavigateTo("/setup");
+            return;
+        }
+        _playerBoard = board;
+
+        _aiBoard = new Board();
+        if (!Randomizer.AutoDeploy(_aiBoard))
+        {
+            Nav.NavigateTo("/setup");
+            return;
+        }
+
+        _ai = AiFactory.Create(_aiBoard.Size);
+        _turn = Turn.Player;
+        _log.Insert(0, "Battle commenced. Take your first shot.");
+    }
+
+    private string StatusTitle => _winner switch
+    {
+        Winner.Player => "You win",
+        Winner.Ai => "You lose",
+        _ => _turn == Turn.Player ? "Your turn" : "Enemy turn",
+    };
+
+    private string StatusSubtitle => _winner is not null
+        ? "Match complete."
+        : _aiThinking
+            ? "Enemy is taking aim..."
+            : _turn == Turn.Player
+                ? "Click a square on the enemy waters to fire."
+                : "Waiting on enemy fire.";
+
+    private static int ShipsRemaining(Board board) => board.Ships.Count(s => !s.IsSunk);
+
+    private async Task HandlePlayerShot(Coordinate coord)
+    {
+        if (_winner is not null) return;
+        if (_turn != Turn.Player) return;
+        if (_aiThinking) return;
+        if (_aiBoard is null) return;
+
+        var result = Engine.ProcessShot(_aiBoard, coord);
+        if (result.Outcome == ShotOutcome.Invalid) return;
+
+        _log.Insert(0, ShotLogFormatter.PlayerShot(result));
+
+        if (result.Outcome == ShotOutcome.Sunk && result.ShipHit is Ship sunk)
+        {
+            ShowSunk($"Enemy {sunk.Type.DisplayName()} sunk!", byPlayer: true);
+        }
+
+        if (result.FleetDestroyed)
+        {
+            _winner = Winner.Player;
+            _log.Insert(0, "All enemy ships destroyed.");
+            return;
+        }
+
+        _turn = Turn.Ai;
+        _aiThinking = true;
+        StateHasChanged();
+
+        try
+        {
+            await RunAiTurnAsync(_cts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        finally
+        {
+            _aiThinking = false;
+        }
+    }
+
+    private async Task RunAiTurnAsync(CancellationToken ct)
+    {
+        if (_ai is null || _playerBoard is null) return;
+
+        var delay = _turnRng.Next(AiDelayMsMin, AiDelayMsMax + 1);
+        await Task.Delay(delay, ct);
+
+        var shot = _ai.NextShot();
+        var result = Engine.ProcessShot(_playerBoard, shot);
+        _ai.RegisterResult(result);
+
+        _log.Insert(0, ShotLogFormatter.AiShot(result));
+
+        if (result.Outcome == ShotOutcome.Sunk && result.ShipHit is Ship sunk)
+        {
+            ShowSunk($"Your {sunk.Type.DisplayName()} was sunk!", byPlayer: false);
+        }
+
+        if (result.FleetDestroyed)
+        {
+            _winner = Winner.Ai;
+            _log.Insert(0, "Your fleet has been destroyed.");
+            return;
+        }
+
+        _turn = Turn.Player;
+    }
+
+    private void ShowSunk(string message, bool byPlayer)
+    {
+        _sunkMessage = message;
+        _sunkByPlayer = byPlayer;
+        var token = ++_sunkBannerToken;
+        _ = ClearSunkBannerAfterDelayAsync(token);
+    }
+
+    private async Task ClearSunkBannerAfterDelayAsync(int token)
+    {
+        try
+        {
+            await Task.Delay(SunkBannerMs, _cts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        if (token != _sunkBannerToken) return;
+        _sunkMessage = null;
+        StateHasChanged();
+    }
+
+    private void PlayAgain() => Nav.NavigateTo("/setup");
+    private void BackToMenu() => Nav.NavigateTo("/");
+
+    public void Dispose()
+    {
+        _cts.Cancel();
+        _cts.Dispose();
+    }
+}

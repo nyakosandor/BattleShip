@@ -1,0 +1,58 @@
+@namespace BattleShip.App.Components.Game
+
+<div class="palette">
+    <div class="palette-header">
+        <h3>Fleet</h3>
+        <button type="button"
+                class="btn btn-sm btn-outline-secondary"
+                @onclick="OnToggleOrientation">
+            Orientation: @(Orientation == Orientation.Horizontal ? "Horizontal" : "Vertical")
+        </button>
+    </div>
+
+    <ul class="ship-list">
+        @foreach (var type in Fleet.StandardComposition)
+        {
+            var placed = PlacedShipTypes.Contains(type);
+            var selected = SelectedShipType == type;
+            var cssClass = "ship-item"
+                + (placed ? " ship-placed" : "")
+                + (selected ? " ship-selected" : "")
+                + (placed ? "" : " ship-clickable");
+            <li class="@cssClass"
+                @onclick="() => HandleSelect(type)">
+                <div class="ship-row">
+                    <span class="ship-name">@type.DisplayName()</span>
+                    <span class="ship-length">Length @type.Length()</span>
+                </div>
+                <div class="ship-preview">
+                    @for (int i = 0; i < type.Length(); i++)
+                    {
+                        <span class="ship-segment @(placed ? "placed" : "")"></span>
+                    }
+                </div>
+                @if (placed)
+                {
+                    <span class="ship-status">Placed</span>
+                }
+            </li>
+        }
+    </ul>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public Orientation Orientation { get; set; }
+    [Parameter] public ShipType? SelectedShipType { get; set; }
+    [Parameter] public IReadOnlyCollection<ShipType> PlacedShipTypes { get; set; } = Array.Empty<ShipType>();
+    [Parameter] public EventCallback<ShipType> OnSelect { get; set; }
+    [Parameter] public EventCallback OnToggleOrientation { get; set; }
+
+    private Task HandleSelect(ShipType type)
+    {
+        if (PlacedShipTypes.Contains(type))
+        {
+            return Task.CompletedTask;
+        }
+        return OnSelect.InvokeAsync(type);
+    }
+}

@@ -1,0 +1,38 @@
+@namespace BattleShip.App.Components.Shared
+
+@* Minimalist navigation tile. Uses MudPaper + a click handler so it gets
+   elevation, hover, ripple, and focus states from MudBlazor for free. *@
+
+<MudPaper Elevation="0"
+          Outlined="true"
+          Class="pa-5 cursor-pointer mud-ripple menu-tile"
+          @onclick="OnClick">
+    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="4">
+        @if (Icon is not null)
+        {
+            <MudIcon Icon="@Icon" Size="Size.Large" Color="Color.Primary" />
+        }
+        <MudStack Spacing="1" Class="flex-grow-1">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                <MudText Typo="Typo.h6">@Title</MudText>
+                @if (!string.IsNullOrEmpty(Caption))
+                {
+                    <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Filled">@Caption</MudChip>
+                }
+            </MudStack>
+            @if (!string.IsNullOrEmpty(Description))
+            {
+                <MudText Typo="Typo.body2" Color="Color.Default">@Description</MudText>
+            }
+        </MudStack>
+        <MudIcon Icon="@Icons.Material.Filled.ChevronRight" Color="Color.Default" />
+    </MudStack>
+</MudPaper>
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
+    [Parameter] public string? Description { get; set; }
+    [Parameter] public string? Caption { get; set; }
+    [Parameter] public string? Icon { get; set; }
+    [Parameter] public EventCallback OnClick { get; set; }
+}

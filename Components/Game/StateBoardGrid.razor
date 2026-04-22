@@ -1,0 +1,50 @@
+@namespace BattleShip.App.Components.Game
+
+@* Renders a 10x10 (or N x N) grid directly from state DTOs, without needing a domain Board.
+   Used by the LAN match screen where opponent ship positions are only partially known. *@
+
+<div class="board-wrapper">
+    <div class="board-grid" style="grid-template-columns: var(--cell-header) repeat(@Size, var(--cell-size));">
+        <div class="board-corner"></div>
+        @for (int x = 0; x < Size; x++)
+        {
+            <div class="board-col-header">@((char)('A' + x))</div>
+        }
+
+        @for (int y = 0; y < Size; y++)
+        {
+            var row = y;
+            <div class="board-row-header">@(row + 1)</div>
+            @for (int x = 0; x < Size; x++)
+            {
+                var coord = new Coordinate(x, row);
+                <BoardCell Coordinate="coord"
+                           View="GetView(coord)"
+                           OnClick="OnCellClick" />
+            }
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public int Size { get; set; } = 10;
+
+    /// <summary>Cells that were hit (either own cells the opponent hit, or my shots that connected).</summary>
+    [Parameter] public IReadOnlySet<Coordinate>? Hits { get; set; }
+
+    /// <summary>Cells where a miss was recorded.</summary>
+    [Parameter] public IReadOnlySet<Coordinate>? Misses { get; set; }
+
+    /// <summary>Ship cells that should render as friendly ship tiles (own fleet, or revealed sunk ships).</summary>
+    [Parameter] public IReadOnlySet<Coordinate>? ShipCells { get; set; }
+
+    [Parameter] public EventCallback<Coordinate> OnCellClick { get; set; }
+
+    private CellView GetView(Coordinate c)
+    {
+        if (Hits is not null && Hits.Contains(c)) return CellView.Hit;
+        if (Misses is not null && Misses.Contains(c)) return CellView.Miss;
+        if (ShipCells is not null && ShipCells.Contains(c)) return CellView.Ship;
+        return CellView.Empty;
+    }
+}
