@@ -41,8 +41,10 @@ public sealed class LanHttpClient : ILanClient
     {
         ArgumentNullException.ThrowIfNull(baseAddress);
 
+        // Keep the per-request timeout tighter than the server's disconnect threshold so that
+        // a silently dropped host surfaces as a NetworkError well before the 5s forfeit window.
         var ownsHttp = http is null;
-        var client = http ?? new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+        var client = http ?? new HttpClient { Timeout = TimeSpan.FromSeconds(3) };
         client.BaseAddress = new Uri(baseAddress.ToString().TrimEnd('/') + "/");
 
         try

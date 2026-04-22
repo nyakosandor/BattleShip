@@ -1,0 +1,342 @@
+@page "/match"
+@using System.Threading
+@using BattleShip.App.Services
+@using BattleShip.Core.Domain
+@using BattleShip.LanServer
+@using BattleShip.LanServer.Client
+@using BattleShip.LanServer.Contracts
+@inject LanClientState ClientState
+@inject ILanHost LanHost
+@inject NavigationManager Nav
+@implements IAsyncDisposable
+
+<PageTitle>LAN Match</PageTitle>
+
+@if (_initError is not null)
+{
+    <div class="match-error">
+        <div class="alert alert-danger">@_initError</div>
+        <button type="button" class="btn btn-outline-primary" @onclick="ReturnToMenu">Back to main menu</button>
+    </div>
+}
+else if (_state is null)
+{
+    <div class="match-loading">
+        <p>Connecting to the match...</p>
+    </div>
+}
+else
+{
+    <div class="match-page">
+        <div class="match-header">
+            <h1>@StatusTitle</h1>
+            <p class="match-subtitle">@StatusSubtitle</p>
+
+            @if (!string.IsNullOrEmpty(_endpointBadge))
+            {
+                <div class="match-endpoint">@_endpointBadge</div>
+            }
+        </div>
+
+        @if (!string.IsNullOrEmpty(_actionError))
+        {
+            <div class="alert alert-warning py-2">@_actionError</div>
+        }
+
+        <div class="boards-row">
+            <div class="board-panel">
+                <h2 class="board-label">Enemy waters — @OpponentName</h2>
+                <StateBoardGrid Size="BoardSize"
+                                Hits="_opponentHits"
+                                Misses="_opponentMisses"
+                                ShipCells="_opponentVisibleShips"
+                                OnCellClick="HandleFireAsync" />
+                <div class="board-stats">
+                    Ships remaining:
+                    @(_opponentPublic?.ShipsRemaining ?? Fleet.StandardComposition.Count) /
+                    @Fleet.StandardComposition.Count
+                </div>
+            </div>
+
+            <div class="board-panel">
+                <h2 class="board-label">Your fleet — @SelfName</h2>
+                <StateBoardGrid Size="BoardSize"
+                                Hits="_selfHits"
+                                Misses="_selfMisses"
+                                ShipCells="_selfShipCells" />
+                <div class="board-stats">
+                    Ships remaining:
+                    @(_selfPublic?.ShipsRemaining ?? Fleet.StandardComposition.Count) /
+                    @Fleet.StandardComposition.Count
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (_state.Phase == GamePhase.Finished)
+    {
+        <div class="endgame-overlay">
+            <div class="endgame-card">
+                <h2>@EndgameTitle</h2>
+                <p>@EndgameDetail</p>
+                <div class="endgame-actions">
+                    <button type="button" class="btn btn-primary" @onclick="ReturnToMenu">Main Menu</button>
+                </div>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    private const int BoardSize = Board.DefaultSize;
+    private static readonly TimeSpan ActivePollInterval = TimeSpan.FromSeconds(1);
+    private static readonly TimeSpan IdlePollInterval = TimeSpan.FromSeconds(2.5);
+    private static readonly TimeSpan NetworkForfeitThreshold = TimeSpan.FromSeconds(5);
+
+    private readonly CancellationTokenSource _cts = new();
+    private Task? _pollLoop;
+
+    private ILanClient? _client;
+    private StateResponse? _state;
+    private string? _initError;
+    private string? _actionError;
+    private string? _endpointBadge;
+
+    // Cached projections over the most recent state so we don't recompute per render.
+    private PlayerPublicView? _selfPublic;
+    private PlayerPublicView? _opponentPublic;
+    private HashSet<Coordinate> _selfHits = new();
+    private HashSet<Coordinate> _selfMisses = new();
+    private HashSet<Coordinate> _selfShipCells = new();
+    private HashSet<Coordinate> _opponentHits = new();
+    private HashSet<Coordinate> _opponentMisses = new();
+    private HashSet<Coordinate> _opponentVisibleShips = new();
+
+    private DateTime _lastSuccessfulPollUtc = DateTime.UtcNow;
+    private bool _hostForfeitAlreadyHandled;
+
+    protected override void OnInitialized()
+    {
+        _client = ClientState.Client;
+        if (_client is null)
+        {
+            _initError = "No active LAN connection. Return to the main menu to host or join a game.";
+            return;
+        }
+
+        _endpointBadge = _client is LocalLanClient
+            ? (LanHost.IsRunning ? $"Hosting: {LanHost.BaseAddress}" : null)
+            : $"Connected to {ClientState.DisplayEndpoint ?? _client.BaseAddress}";
+
+        _pollLoop = Task.Run(() => PollLoopAsync(_cts.Token));
+    }
+
+    // ---------- Polling loop ----------
+
+    private async Task PollLoopAsync(CancellationToken ct)
+    {
+        while (!ct.IsCancellationRequested)
+        {
+            if (_client is null) return;
+
+            var result = await _client.GetStateAsync(ct).ConfigureAwait(false);
+
+            if (result.Success && result.Value is not null)
+            {
+                _lastSuccessfulPollUtc = DateTime.UtcNow;
+                await InvokeAsync(() =>
+                {
+                    ApplyState(result.Value);
+                    StateHasChanged();
+                });
+            }
+            else if (result.NetworkError)
+            {
+                // The host's LocalLanClient should never hit NetworkError, but a guest's
+                // HTTP poll can: treat sustained failure past the 5s threshold as a forfeit.
+                var sinceOk = DateTime.UtcNow - _lastSuccessfulPollUtc;
+                if (sinceOk >= NetworkForfeitThreshold && !_hostForfeitAlreadyHandled)
+                {
+                    _hostForfeitAlreadyHandled = true;
+                    await InvokeAsync(() =>
+                    {
+                        _initError = "Opponent disconnected. The match has been forfeited.";
+                        StateHasChanged();
+                    });
+                    return;
+                }
+            }
+            else
+            {
+                await InvokeAsync(() =>
+                {
+                    _actionError = $"Server refused state request: {result.Message}";
+                    StateHasChanged();
+                });
+            }
+
+            // Poll faster while it's the opponent's turn (or during setup), slower otherwise.
+            var delay = ChoosePollInterval();
+            try { await Task.Delay(delay, ct).ConfigureAwait(false); }
+            catch (OperationCanceledException) { return; }
+        }
+    }
+
+    private TimeSpan ChoosePollInterval()
+    {
+        if (_state is null) return ActivePollInterval;
+        if (_state.Phase == GamePhase.Finished) return IdlePollInterval;
+        if (_state.Phase == GamePhase.InProgress)
+        {
+            return _state.Turn == _client!.Role ? IdlePollInterval : ActivePollInterval;
+        }
+        // WaitingForClient / Deploying — poll at the active rate so we react as soon as the opponent connects/deploys.
+        return ActivePollInterval;
+    }
+
+    // ---------- State projection ----------
+
+    private void ApplyState(StateResponse state)
+    {
+        _state = state;
+        _actionError = null;
+
+        var role = _client!.Role;
+        _selfPublic = role == PlayerRole.Host ? state.Host : state.Guest;
+        _opponentPublic = role == PlayerRole.Host ? state.Guest : state.Host;
+
+        _selfHits = _selfPublic is null ? new() : ToSet(_selfPublic.Hits);
+        _selfMisses = _selfPublic is null ? new() : ToSet(_selfPublic.Misses);
+        _selfShipCells = state.Self is null ? new() : state.Self.Fleet.SelectMany(s => s.Coordinates).Select(c => c.ToDomain()).ToHashSet();
+
+        _opponentHits = _opponentPublic is null ? new() : ToSet(_opponentPublic.Hits);
+        _opponentMisses = _opponentPublic is null ? new() : ToSet(_opponentPublic.Misses);
+        // Only sunk opponent ships expose their coordinates; reveal them as ship tiles on the offense board.
+        _opponentVisibleShips = _opponentPublic is null
+            ? new()
+            : _opponentPublic.SunkShips.SelectMany(s => s.Coordinates).Select(c => c.ToDomain()).ToHashSet();
+    }
+
+    private static HashSet<Coordinate> ToSet(IReadOnlyList<CoordinateDto> coords) =>
+        coords.Select(c => c.ToDomain()).ToHashSet();
+
+    // ---------- Player actions ----------
+
+    private async Task HandleFireAsync(Coordinate coord)
+    {
+        if (_client is null || _state is null) return;
+        if (_state.Phase != GamePhase.InProgress) return;
+        if (_state.Turn != _client.Role) return;
+
+        var result = await _client.FireAsync(new CoordinateDto(coord.X, coord.Y), _cts.Token).ConfigureAwait(true);
+        if (!result.Success)
+        {
+            _actionError = result.Message ?? "Shot rejected.";
+            StateHasChanged();
+            return;
+        }
+
+        // Optimistic refresh: pull full state immediately so the UI reacts without waiting for the next tick.
+        var refreshed = await _client.GetStateAsync(_cts.Token).ConfigureAwait(true);
+        if (refreshed.Success && refreshed.Value is not null)
+        {
+            ApplyState(refreshed.Value);
+            _lastSuccessfulPollUtc = DateTime.UtcNow;
+        }
+        StateHasChanged();
+    }
+
+    // ---------- Status strings ----------
+
+    private string OpponentName => _opponentPublic?.Name ?? "Opponent";
+    private string SelfName => _selfPublic?.Name ?? _client?.PlayerName ?? "You";
+
+    private string StatusTitle
+    {
+        get
+        {
+            if (_state is null) return "Connecting...";
+            if (_state.Phase == GamePhase.Finished)
+            {
+                if (_state.EndReason == EndReason.Forfeit)
+                {
+                    return _state.Winner == _client?.Role ? "Opponent disconnected" : "Forfeit";
+                }
+                return _state.Winner == _client?.Role ? "Victory!" : "Defeat";
+            }
+            if (_state.Phase == GamePhase.WaitingForClient) return "Waiting for opponent";
+            if (_state.Phase == GamePhase.Deploying) return "Opponent is deploying";
+            return _state.Turn == _client?.Role ? "Your turn" : "Opponent's turn";
+        }
+    }
+
+    private string StatusSubtitle
+    {
+        get
+        {
+            if (_state is null) return string.Empty;
+            return _state.Phase switch
+            {
+                GamePhase.WaitingForClient => "Share your host address so a friend can join.",
+                GamePhase.Deploying => "They're placing their fleet. The match will start automatically.",
+                GamePhase.InProgress when _state.Turn == _client?.Role => "Click a cell on the enemy waters to fire.",
+                GamePhase.InProgress => "Hold tight — the opponent is taking aim.",
+                GamePhase.Finished => "Match complete.",
+                _ => string.Empty,
+            };
+        }
+    }
+
+    private string EndgameTitle => _state?.EndReason switch
+    {
+        EndReason.Forfeit when _state.Winner == _client?.Role => "Opponent Disconnected",
+        EndReason.Forfeit => "Match Forfeited",
+        EndReason.FleetDestroyed when _state.Winner == _client?.Role => "Victory!",
+        EndReason.FleetDestroyed => "Defeat",
+        _ => "Match complete",
+    };
+
+    private string EndgameDetail => _state?.EndReason switch
+    {
+        EndReason.Forfeit when _state.Winner == _client?.Role => "Your opponent left the match. The win is yours.",
+        EndReason.Forfeit => "You forfeited the match.",
+        EndReason.FleetDestroyed when _state.Winner == _client?.Role => "You sank the entire enemy fleet.",
+        EndReason.FleetDestroyed => "Your fleet has been destroyed.",
+        _ => string.Empty,
+    };
+
+    // ---------- Teardown ----------
+
+    private async Task ReturnToMenu()
+    {
+        await TeardownAsync();
+        Nav.NavigateTo("/");
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await TeardownAsync();
+    }
+
+    private async Task TeardownAsync()
+    {
+        try { _cts.Cancel(); } catch { }
+        if (_pollLoop is not null)
+        {
+            try { await _pollLoop.ConfigureAwait(false); }
+            catch (OperationCanceledException) { }
+            catch { }
+        }
+
+        await ClientState.DisposeAndClearAsync();
+
+        // Host owns the server; stop it so the port is released and any guest poll times out.
+        if (LanHost.IsRunning)
+        {
+            try { await LanHost.StopAsync().ConfigureAwait(false); }
+            catch { }
+        }
+
+        _cts.Dispose();
+    }
+}

@@ -1,4 +1,8 @@
 @page "/lan"
+@using System.ComponentModel.DataAnnotations
+@using BattleShip.App.Services
+@using BattleShip.LanServer.Client
+@inject LanClientState ClientState
 @inject NavigationManager Nav
 
 <PageTitle>LAN Game</PageTitle>
@@ -13,13 +17,102 @@
             <span class="lan-card-desc">Start a local server, deploy your fleet, and wait for a challenger to connect.</span>
         </button>
 
-        <button type="button" class="lan-card lan-card-disabled" disabled>
-            <span class="lan-card-title">Join a Game <span class="lan-card-badge">soon</span></span>
-            <span class="lan-card-desc">Connect to a host's LAN server. Arriving in Phase 5.</span>
-        </button>
+        <div class="lan-card lan-card-form">
+            <span class="lan-card-title">Join a Game</span>
+            <span class="lan-card-desc">Connect to a host's LAN server using their address.</span>
+
+            <EditForm Model="_form" OnValidSubmit="ConnectAsync" class="lan-join-form">
+                <DataAnnotationsValidator />
+
+                <label class="lan-field">
+                    <span>Host address</span>
+                    <InputText @bind-Value="_form.Address" placeholder="192.168.1.23" disabled="@_connecting" />
+                </label>
+
+                <label class="lan-field lan-field-port">
+                    <span>Port</span>
+                    <InputNumber @bind-Value="_form.Port" disabled="@_connecting" />
+                </label>
+
+                <label class="lan-field">
+                    <span>Your name</span>
+                    <InputText @bind-Value="_form.Name" placeholder="Challenger" disabled="@_connecting" />
+                </label>
+
+                <ValidationSummary class="lan-validation" />
+
+                @if (!string.IsNullOrEmpty(_errorMessage))
+                {
+                    <div class="alert alert-danger py-2">@_errorMessage</div>
+                }
+
+                <button type="submit" class="btn btn-primary w-100" disabled="@_connecting">
+                    @(_connecting ? "Connecting..." : "Connect")
+                </button>
+            </EditForm>
+        </div>
     </div>
 
     <button type="button" class="btn btn-link" @onclick='() => Nav.NavigateTo("/")'>
         Back to menu
     </button>
 </div>
+
+@code {
+    private readonly JoinForm _form = new();
+    private bool _connecting;
+    private string? _errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // If we're returning to /lan after an earlier session, make sure any residual client is cleaned up.
+        if (ClientState.IsConnected)
+        {
+            await ClientState.DisposeAndClearAsync();
+        }
+    }
+
+    private async Task ConnectAsync()
+    {
+        _errorMessage = null;
+
+        if (!Uri.TryCreate($"http://{_form.Address.Trim()}:{_form.Port}/", UriKind.Absolute, out var baseUri))
+        {
+            _errorMessage = "Address must be a plain hostname or IP (no scheme, no path).";
+            return;
+        }
+
+        _connecting = true;
+        try
+        {
+            var result = await LanHttpClient.ConnectAsync(baseUri, _form.Name.Trim());
+            if (!result.Success || result.Value is null)
+            {
+                _errorMessage = result.NetworkError
+                    ? $"Couldn't reach {baseUri.Host}:{baseUri.Port}. {result.Message}"
+                    : $"Host rejected the connection: {result.Message}";
+                return;
+            }
+
+            ClientState.AttachGuestClient(result.Value, baseUri.ToString().TrimEnd('/'));
+            Nav.NavigateTo("/setup?mode=guest");
+        }
+        finally
+        {
+            _connecting = false;
+        }
+    }
+
+    private sealed class JoinForm
+    {
+        [Required(ErrorMessage = "Host address is required.")]
+        public string Address { get; set; } = string.Empty;
+
+        [Range(1, 65535, ErrorMessage = "Port must be between 1 and 65535.")]
+        public int Port { get; set; } = 5100;
+
+        [Required(ErrorMessage = "Pick a name so the host can see you.")]
+        [StringLength(32, ErrorMessage = "Name must be 32 characters or fewer.")]
+        public string Name { get; set; } = string.Empty;
+    }
+}

@@ -1,0 +1,91 @@
+.match-page {
+    padding-top: 0.5rem;
+}
+
+.match-header {
+    margin-bottom: 1rem;
+}
+
+    .match-header h1 {
+        color: #1e3f66;
+        margin-bottom: 0.2rem;
+    }
+
+.match-subtitle {
+    color: #556677;
+    margin-bottom: 0.35rem;
+}
+
+.match-endpoint {
+    display: inline-block;
+    font-size: 0.8rem;
+    color: #33475b;
+    background: #eef4fb;
+    border: 1px solid #d6dee7;
+    padding: 0.15rem 0.55rem;
+    border-radius: 6px;
+    font-family: var(--bs-font-monospace, monospace);
+}
+
+.match-loading,
+.match-error {
+    max-width: 520px;
+    padding: 1.25rem;
+}
+
+.boards-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    align-items: flex-start;
+}
+
+.board-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.board-label {
+    font-size: 0.95rem;
+    color: #1b6ec2;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    margin: 0;
+}
+
+.board-stats {
+    font-size: 0.85rem;
+    color: #556677;
+}
+
+.endgame-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 30, 50, 0.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 40;
+}
+
+.endgame-card {
+    background: #ffffff;
+    border-radius: 14px;
+    padding: 1.5rem 1.75rem;
+    min-width: 20rem;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+    text-align: center;
+}
+
+    .endgame-card h2 {
+        color: #1e3f66;
+        margin-bottom: 0.5rem;
+    }
+
+.endgame-actions {
+    display: flex;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-top: 1rem;
+}

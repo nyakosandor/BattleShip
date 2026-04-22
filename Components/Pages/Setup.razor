@@ -1,9 +1,14 @@
 @page "/setup"
 @using BattleShip.App.Services
+@using BattleShip.LanServer
+@using BattleShip.LanServer.Client
+@using BattleShip.LanServer.Contracts
 @using Microsoft.AspNetCore.Components
 @inject IGameEngine Engine
 @inject IFleetRandomizer Randomizer
 @inject GameHandoff Handoff
+@inject ILanHost LanHost
+@inject LanClientState ClientState
 @inject NavigationManager Nav
 
 <PageTitle>Fleet Setup</PageTitle>
@@ -41,17 +46,17 @@
                          OnToggleOrientation="ToggleOrientation" />
 
             <div class="setup-actions">
-                <button type="button" class="btn btn-primary w-100 mb-2" @onclick="AutoDeploy">
+                <button type="button" class="btn btn-primary w-100 mb-2" @onclick="AutoDeploy" disabled="@_submitting">
                     Auto-Deploy
                 </button>
-                <button type="button" class="btn btn-outline-secondary w-100 mb-2" @onclick="ClearBoard">
+                <button type="button" class="btn btn-outline-secondary w-100 mb-2" @onclick="ClearBoard" disabled="@_submitting">
                     Clear Board
                 </button>
                 <button type="button"
                         class="btn btn-success w-100"
-                        disabled="@(!AllShipsPlaced)"
+                        disabled="@(!AllShipsPlaced || _submitting)"
                         @onclick="Ready">
-                    @ReadyLabel (@_board.Ships.Count / @Fleet.StandardComposition.Count)
+                    @ReadyButtonLabel
                 </button>
             </div>
 
@@ -63,6 +68,8 @@
 </div>
 
 @code {
+    private const int DefaultHostPort = 5100;
+
     [SupplyParameterFromQuery] public string? Mode { get; set; }
 
     private Board _board = new();
@@ -75,14 +82,50 @@
 
     private string? _statusMessage;
     private bool _statusIsError;
+    private bool _submitting;
 
-    private bool IsHostMode => string.Equals(Mode, "host", StringComparison.OrdinalIgnoreCase);
-    private string Heading => IsHostMode ? "Deploy your fleet (LAN Host)" : "Deploy your fleet";
-    private string ReadyLabel => IsHostMode ? "Start Server" : "Ready";
+    private enum SetupMode { SinglePlayer, LanHost, LanGuest }
+
+    private SetupMode CurrentMode => Mode?.ToLowerInvariant() switch
+    {
+        "host" => SetupMode.LanHost,
+        "guest" => SetupMode.LanGuest,
+        _ => SetupMode.SinglePlayer,
+    };
+
+    private string Heading => CurrentMode switch
+    {
+        SetupMode.LanHost => "Deploy your fleet (LAN Host)",
+        SetupMode.LanGuest => "Deploy your fleet (LAN Guest)",
+        _ => "Deploy your fleet",
+    };
+
+    private string ReadyLabel => CurrentMode switch
+    {
+        SetupMode.LanHost => "Start Server",
+        SetupMode.LanGuest => "Submit Fleet",
+        _ => "Ready",
+    };
+
+    private string ReadyButtonLabel
+    {
+        get
+        {
+            var count = $"{_board.Ships.Count} / {Fleet.StandardComposition.Count}";
+            if (_submitting) return $"Working... ({count})";
+            return $"{ReadyLabel} ({count})";
+        }
+    }
 
     protected override void OnInitialized()
     {
         _selected = Fleet.StandardComposition.First();
+
+        // Guest mode requires that the player has already connected on /lan.
+        if (CurrentMode == SetupMode.LanGuest && !ClientState.IsConnected)
+        {
+            Nav.NavigateTo("/lan");
+        }
     }
 
     private bool AllShipsPlaced => _placedTypes.Count == Fleet.StandardComposition.Count;
@@ -175,11 +218,81 @@
         ClearPreview();
     }
 
-    private void Ready()
+    private async Task Ready()
     {
-        if (!AllShipsPlaced) return;
-        Handoff.Submit(_board);
-        Nav.NavigateTo(IsHostMode ? "/host" : "/play");
+        if (!AllShipsPlaced || _submitting) return;
+        _submitting = true;
+        try
+        {
+            switch (CurrentMode)
+            {
+                case SetupMode.LanHost:
+                    await StartHostAsync();
+                    break;
+                case SetupMode.LanGuest:
+                    await SubmitGuestFleetAsync();
+                    break;
+                default:
+                    Handoff.Submit(_board);
+                    Nav.NavigateTo("/play");
+                    break;
+            }
+        }
+        finally
+        {
+            _submitting = false;
+        }
+    }
+
+    private async Task StartHostAsync()
+    {
+        try
+        {
+            await LanHost.StartAsync("Host", _board, DefaultHostPort);
+        }
+        catch (Exception ex)
+        {
+            SetStatus($"Failed to start server: {ex.Message}", isError: true);
+            return;
+        }
+
+        var identity = LanHost.HostIdentity;
+        if (LanHost.Session is null || identity is null)
+        {
+            SetStatus("Server started but no host identity is available.", isError: true);
+            return;
+        }
+
+        var hostClient = new LocalLanClient(LanHost.Session, identity);
+        ClientState.AttachHostClient(hostClient);
+        Nav.NavigateTo("/match");
+    }
+
+    private async Task SubmitGuestFleetAsync()
+    {
+        var client = ClientState.Client;
+        if (client is null)
+        {
+            Nav.NavigateTo("/lan");
+            return;
+        }
+
+        var placements = _board.Ships
+            .Select(ship => new PlacementDto(
+                ship.Type,
+                new CoordinateDto(ship.Coordinates[0].X, ship.Coordinates[0].Y),
+                ship.Orientation))
+            .ToList();
+
+        var result = await client.DeployAsync(placements);
+        if (!result.Success)
+        {
+            var prefix = result.NetworkError ? "Lost connection to host" : "Host rejected the fleet";
+            SetStatus($"{prefix}: {result.Message}", isError: true);
+            return;
+        }
+
+        Nav.NavigateTo("/match");
     }
 
     private void ClearBoardState()
