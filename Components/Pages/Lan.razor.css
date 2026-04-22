@@ -27,19 +27,21 @@
     border: 1px solid #d6dee7;
     border-radius: 10px;
     background: #ffffff;
-    cursor: pointer;
     transition: transform 0.08s ease, box-shadow 0.15s ease, border-color 0.15s ease;
 }
 
-    .lan-card:hover:not(:disabled) {
+button.lan-card {
+    cursor: pointer;
+}
+
+    button.lan-card:hover:not(:disabled) {
         transform: translateY(-1px);
         border-color: #1b6ec2;
         box-shadow: 0 4px 10px rgba(27, 110, 194, 0.18);
     }
 
-.lan-card-disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
+.lan-card-form {
+    gap: 0.6rem;
 }
 
 .lan-card-title {
@@ -49,18 +51,60 @@
     margin-bottom: 0.15rem;
 }
 
-.lan-card-badge {
-    font-size: 0.7rem;
-    color: #8f6d1e;
-    background: #fff3c4;
-    padding: 0.1rem 0.4rem;
-    border-radius: 999px;
-    margin-left: 0.4rem;
-    font-weight: 600;
-    vertical-align: middle;
-}
-
 .lan-card-desc {
     color: #6d7b89;
     font-size: 0.875rem;
+    margin-bottom: 0.25rem;
+}
+
+.lan-join-form {
+    display: grid;
+    grid-template-columns: 1fr 7rem;
+    column-gap: 0.75rem;
+    row-gap: 0.6rem;
+    align-items: end;
+    margin-top: 0.35rem;
+}
+
+.lan-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    font-size: 0.85rem;
+    color: #33475b;
+    grid-column: 1 / span 2;
+}
+
+    .lan-field input {
+        border: 1px solid #c9d3de;
+        border-radius: 6px;
+        padding: 0.4rem 0.55rem;
+        font-size: 0.95rem;
+    }
+
+    .lan-field input:focus {
+        outline: none;
+        border-color: #1b6ec2;
+        box-shadow: 0 0 0 2px rgba(27, 110, 194, 0.2);
+    }
+
+.lan-field-port {
+    grid-column: auto;
+}
+
+.lan-validation {
+    grid-column: 1 / span 2;
+    color: #a92222;
+    font-size: 0.8rem;
+    margin: 0;
+    padding-left: 1rem;
+}
+
+.lan-join-form .alert {
+    grid-column: 1 / span 2;
+    margin: 0;
+}
+
+.lan-join-form > button[type="submit"] {
+    grid-column: 1 / span 2;
 }

@@ -24,6 +24,7 @@ namespace BattleShip.App
             builder.Services.AddSingleton<IAiPlayerFactory, HuntTargetAiFactory>();
             builder.Services.AddSingleton<GameHandoff>();
             builder.Services.AddSingleton<ILanHost, LanHost>();
+            builder.Services.AddSingleton<LanClientState>();
 
 #if DEBUG
     		builder.Services.AddBlazorWebViewDeveloperTools();
