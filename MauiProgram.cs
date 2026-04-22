@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using BattleShip.Core.Services;
+using Microsoft.Extensions.Logging;
 
 namespace BattleShip.App
 {
@@ -15,6 +16,8 @@ namespace BattleShip.App
                 });
 
             builder.Services.AddMauiBlazorWebView();
+
+            builder.Services.AddSingleton<IGameEngine, GameEngine>();
 
 #if DEBUG
     		builder.Services.AddBlazorWebViewDeveloperTools();

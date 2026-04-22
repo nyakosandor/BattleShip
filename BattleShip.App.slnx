@@ -1,3 +1,5 @@
 <Solution>
   <Project Path="BattleShip.App.csproj" />
+  <Project Path="BattleShip.Core/BattleShip.Core.csproj" />
+  <Project Path="BattleShip.Tests/BattleShip.Tests.csproj" />
 </Solution>
