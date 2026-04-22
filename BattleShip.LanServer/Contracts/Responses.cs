@@ -38,9 +38,17 @@ public sealed record StateResponse(
     GamePhase Phase,
     PlayerRole? Turn,
     PlayerRole? Winner,
+    EndReason EndReason,
     PlayerPublicView? Host,
     PlayerPublicView? Guest,
     PlayerPrivateView? Self);
+
+public enum EndReason
+{
+    None,
+    FleetDestroyed,
+    Forfeit,
+}
 
 public sealed record FireResponse(
     ShotOutcomeDto Outcome,

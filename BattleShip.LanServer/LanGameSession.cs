@@ -12,20 +12,36 @@ namespace BattleShip.LanServer;
 /// </summary>
 public sealed class LanGameSession
 {
+    /// <summary>
+    /// How long a player can go without polling / acting before the session declares
+    /// them disconnected and awards the match to the other side.
+    /// </summary>
+    public static readonly TimeSpan DefaultDisconnectTimeout = TimeSpan.FromSeconds(5);
+
     private readonly object _sync = new();
     private readonly IGameEngine _engine;
+    private readonly Func<DateTimeOffset> _clock;
+    private readonly TimeSpan _disconnectTimeout;
 
     private PlayerSlot? _host;
     private PlayerSlot? _guest;
     private GamePhase _phase = GamePhase.WaitingForClient;
     private PlayerRole _turn = PlayerRole.Host;
     private PlayerRole? _winner;
+    private EndReason _endReason = EndReason.None;
 
     public event Action? StateChanged;
 
     public LanGameSession(IGameEngine engine)
+        : this(engine, clock: null, disconnectTimeout: null)
+    {
+    }
+
+    public LanGameSession(IGameEngine engine, Func<DateTimeOffset>? clock, TimeSpan? disconnectTimeout)
     {
         _engine = engine ?? throw new ArgumentNullException(nameof(engine));
+        _clock = clock ?? (() => DateTimeOffset.UtcNow);
+        _disconnectTimeout = disconnectTimeout ?? DefaultDisconnectTimeout;
     }
 
     /// <summary>
@@ -55,6 +71,7 @@ public sealed class LanGameSession
                 Role = PlayerRole.Host,
                 Board = deployedBoard,
                 Deployed = true,
+                LastSeen = _clock(),
             };
             _host = slot;
             RaiseChangedNoLock();
@@ -90,6 +107,7 @@ public sealed class LanGameSession
                 Role = PlayerRole.Guest,
                 Board = new Board(),
                 Deployed = false,
+                LastSeen = _clock(),
             };
             _guest = slot;
             _phase = GamePhase.Deploying;
@@ -116,6 +134,7 @@ public sealed class LanGameSession
             {
                 return ActionResult<StateResponse>.Fail(ActionErrorCodes.AlreadyDeployed, "You have already submitted your fleet.");
             }
+            slot.LastSeen = _clock();
             if (placements.Count != Fleet.StandardComposition.Count)
             {
                 return ActionResult<StateResponse>.Fail(
@@ -183,6 +202,7 @@ public sealed class LanGameSession
             {
                 return ActionResult<FireResponse>.Fail(ActionErrorCodes.InvalidTurn, "It is not your turn.");
             }
+            slot.LastSeen = _clock();
 
             var opponent = slot.Role == PlayerRole.Host ? _guest : _host;
             if (opponent is null)
@@ -207,6 +227,7 @@ public sealed class LanGameSession
             {
                 _phase = GamePhase.Finished;
                 _winner = slot.Role;
+                _endReason = EndReason.FleetDestroyed;
                 nextTurn = null;
             }
             else
@@ -240,6 +261,11 @@ public sealed class LanGameSession
             if (!string.IsNullOrEmpty(token))
             {
                 TryResolveSlot(token, out slot);
+            }
+            if (slot is not null)
+            {
+                slot.LastSeen = _clock();
+                CheckForForfeitNoLock(slot);
             }
             return BuildStateNoLock(slot);
         }
@@ -305,9 +331,47 @@ public sealed class LanGameSession
             _phase,
             _phase == GamePhase.InProgress ? _turn : null,
             _winner,
+            _endReason,
             hostView,
             guestView,
             privateView);
+    }
+
+    /// <summary>
+    /// If the observer is alive but the other side has gone quiet past the disconnect
+    /// threshold, finish the match in the observer's favour with <see cref="EndReason.Forfeit"/>.
+    /// Called whenever anyone polls or acts, so a still-present player's own traffic is
+    /// what triggers the detection.
+    /// </summary>
+    private void CheckForForfeitNoLock(PlayerSlot? observer)
+    {
+        // Forfeit detection only makes sense after both players have locked in — a guest
+        // closing their window before deploying shouldn't award a match that hasn't begun.
+        if (_phase != GamePhase.InProgress) return;
+
+        var now = _clock();
+        var hostStale = _host is not null && (now - _host.LastSeen) > _disconnectTimeout;
+        var guestStale = _guest is not null && (now - _guest.LastSeen) > _disconnectTimeout;
+
+        // Only treat the "other" side as disconnected — the poller is, by definition, alive.
+        if (observer is not null)
+        {
+            if (observer.Role == PlayerRole.Host) hostStale = false;
+            else if (observer.Role == PlayerRole.Guest) guestStale = false;
+        }
+
+        if (!hostStale && !guestStale) return;
+
+        PlayerRole? winner = null;
+        if (hostStale && _guest is not null) winner = PlayerRole.Guest;
+        else if (guestStale && _host is not null) winner = PlayerRole.Host;
+
+        if (winner is null) return;
+
+        _phase = GamePhase.Finished;
+        _winner = winner;
+        _endReason = EndReason.Forfeit;
+        RaiseChangedNoLock();
     }
 
     private static PlayerPublicView BuildPublicView(PlayerSlot slot)
@@ -389,5 +453,6 @@ public sealed class LanGameSession
         public PlayerRole Role;
         public required Board Board;
         public bool Deployed;
+        public DateTimeOffset LastSeen;
     }
 }
