@@ -1,0 +1,38 @@
+.board-wrapper {
+    display: inline-block;
+    padding: 0.75rem;
+    background: linear-gradient(135deg, #1e3f66 0%, #2b5a87 100%);
+    border-radius: 8px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+}
+
+.board-grid {
+    display: grid;
+    grid-auto-rows: auto;
+    gap: 2px;
+}
+
+.board-corner {
+    width: 1.5rem;
+    height: 1.5rem;
+}
+
+.board-col-header,
+.board-row-header {
+    color: #e9f1f9;
+    font-weight: 600;
+    font-size: 0.8rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    user-select: none;
+}
+
+.board-col-header {
+    height: 1.5rem;
+}
+
+.board-row-header {
+    width: 1.5rem;
+    height: 2.4rem;
+}
