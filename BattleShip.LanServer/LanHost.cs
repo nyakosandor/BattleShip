@@ -35,6 +35,7 @@ public sealed class LanHost : ILanHost
     public string? BaseAddress => _baseAddress;
     public string? LanAddress => _lanAddress;
     public LanGameSession? Session => _session;
+    public ConnectResponse? HostIdentity => _session?.HostIdentity;
 
     public Task StartAsync(string hostName, Board hostBoard, int port, CancellationToken ct = default)
     {

@@ -7,7 +7,9 @@ public interface ILanHost : IAsyncDisposable
 {
     bool IsRunning { get; }
     string? BaseAddress { get; }
+    string? LanAddress { get; }
     LanGameSession? Session { get; }
+    ConnectResponse? HostIdentity { get; }
 
     event Action? StateChanged;
 

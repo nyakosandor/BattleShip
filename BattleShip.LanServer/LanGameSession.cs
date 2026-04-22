@@ -269,6 +269,24 @@ public sealed class LanGameSession
         get { lock (_sync) { return _guest is not null; } }
     }
 
+    /// <summary>
+    /// Public copy of the host's <see cref="ConnectResponse"/>. Used by the in-process
+    /// host to construct a <see cref="Client.LocalLanClient"/>. Returns <c>null</c> until
+    /// <see cref="RegisterHost"/> has been called.
+    /// </summary>
+    public ConnectResponse? HostIdentity
+    {
+        get
+        {
+            lock (_sync)
+            {
+                return _host is null
+                    ? null
+                    : new ConnectResponse(_host.Id, _host.Token, _host.Role, _host.Name);
+            }
+        }
+    }
+
     private StateResponse BuildStateNoLock(PlayerSlot? self)
     {
         var hostView = _host is null ? null : BuildPublicView(_host);
