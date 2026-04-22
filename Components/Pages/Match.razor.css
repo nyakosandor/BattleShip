@@ -59,6 +59,38 @@
     color: #556677;
 }
 
+.shot-log {
+    margin-top: 1.25rem;
+    background: #f5f8fb;
+    border: 1px solid #d6dee7;
+    border-radius: 8px;
+    padding: 0.5rem 1rem;
+    max-width: 520px;
+}
+
+    .shot-log h3 {
+        font-size: 0.85rem;
+        color: #1e3f66;
+        margin-bottom: 0.25rem;
+    }
+
+    .shot-log ol {
+        margin: 0;
+        padding-left: 1.2rem;
+        font-size: 0.85rem;
+        color: #33475b;
+    }
+
+    .shot-log li {
+        padding: 0.05rem 0;
+    }
+
+.shot-log-empty {
+    font-size: 0.85rem;
+    color: #6d7b89;
+    margin: 0;
+}
+
 .endgame-overlay {
     position: fixed;
     inset: 0;

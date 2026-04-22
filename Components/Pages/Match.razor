@@ -71,6 +71,23 @@ else
                 </div>
             </div>
         </div>
+
+        <div class="shot-log" aria-live="polite">
+            <h3>Log</h3>
+            @if (_log.Count == 0)
+            {
+                <p class="shot-log-empty">No shots fired yet.</p>
+            }
+            else
+            {
+                <ol>
+                    @foreach (var entry in _log.Take(8))
+                    {
+                        <li>@entry</li>
+                    }
+                </ol>
+            }
+        </div>
     </div>
 
     @if (_state.Phase == GamePhase.Finished)
@@ -114,6 +131,13 @@ else
 
     private DateTime _lastSuccessfulPollUtc = DateTime.UtcNow;
     private bool _hostForfeitAlreadyHandled;
+
+    // Shot log plus diff baselines used to detect opponent fire between state polls.
+    private readonly List<string> _log = new();
+    private bool _logBaselineReady;
+    private HashSet<Coordinate> _prevSelfHits = new();
+    private HashSet<Coordinate> _prevSelfMisses = new();
+    private HashSet<ShipType> _prevSelfSunkTypes = new();
 
     protected override void OnInitialized()
     {
@@ -215,6 +239,63 @@ else
         _opponentVisibleShips = _opponentPublic is null
             ? new()
             : _opponentPublic.SunkShips.SelectMany(s => s.Coordinates).Select(c => c.ToDomain()).ToHashSet();
+
+        ReconcileOpponentFireLog();
+    }
+
+    private void ReconcileOpponentFireLog()
+    {
+        var currentSunkTypes = (_selfPublic?.SunkShips ?? Array.Empty<ShipDto>())
+            .Select(s => s.Type)
+            .ToHashSet();
+
+        if (_logBaselineReady)
+        {
+            // A sunk ship's cells also land in Hits, so suppress the per-cell hit line when a
+            // new sunk entry appears on the same turn to keep the log readable.
+            var sunkCellsJustRevealed = (_selfPublic?.SunkShips ?? Array.Empty<ShipDto>())
+                .Where(s => !_prevSelfSunkTypes.Contains(s.Type))
+                .SelectMany(s => s.Coordinates.Select(c => c.ToDomain()))
+                .ToHashSet();
+
+            foreach (var hit in _selfHits.Except(_prevSelfHits).OrderBy(c => c.Y).ThenBy(c => c.X))
+            {
+                if (sunkCellsJustRevealed.Contains(hit)) continue;
+                AppendLog($"Opponent hit your fleet at {Format(hit)}.");
+            }
+
+            foreach (var miss in _selfMisses.Except(_prevSelfMisses).OrderBy(c => c.Y).ThenBy(c => c.X))
+            {
+                AppendLog($"Opponent missed at {Format(miss)}.");
+            }
+
+            foreach (var type in currentSunkTypes.Except(_prevSelfSunkTypes))
+            {
+                AppendLog($"Opponent sank your {type.DisplayName()}.");
+            }
+        }
+
+        _prevSelfHits = new HashSet<Coordinate>(_selfHits);
+        _prevSelfMisses = new HashSet<Coordinate>(_selfMisses);
+        _prevSelfSunkTypes = currentSunkTypes;
+        _logBaselineReady = true;
+    }
+
+    private void AppendLog(string entry) => _log.Insert(0, entry);
+
+    private static string Format(Coordinate c) => $"{(char)('A' + c.X)}{c.Y + 1}";
+
+    private static string PlayerShotLogLine(FireResponse r)
+    {
+        var target = Format(new Coordinate(r.Target.X, r.Target.Y));
+        return r.Outcome switch
+        {
+            ShotOutcomeDto.Hit => $"You hit at {target}.",
+            ShotOutcomeDto.Sunk when r.ShipSunk is ShipType s => $"You sank the enemy {s.DisplayName()} at {target}.",
+            ShotOutcomeDto.Sunk => $"You sank an enemy ship at {target}.",
+            ShotOutcomeDto.Miss => $"You missed at {target}.",
+            _ => $"Invalid shot at {target}.",
+        };
     }
 
     private static HashSet<Coordinate> ToSet(IReadOnlyList<CoordinateDto> coords) =>
@@ -234,6 +315,11 @@ else
             _actionError = result.Message ?? "Shot rejected.";
             StateHasChanged();
             return;
+        }
+
+        if (result.Value is FireResponse fire)
+        {
+            AppendLog(PlayerShotLogLine(fire));
         }
 
         // Optimistic refresh: pull full state immediately so the UI reacts without waiting for the next tick.
