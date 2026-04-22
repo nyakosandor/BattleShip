@@ -1,0 +1,44 @@
+/* ---------------------------------------------------------------------------
+   Game-only design tokens. MudBlazor owns all app-chrome styling (buttons,
+   typography, surfaces, alerts, dialogs, etc.), so only values unique to the
+   battleship board live here.
+   --------------------------------------------------------------------------- */
+
+:root {
+    /* ---------- Game board palette ---------- */
+    --color-board-bg-start: #1e3f66;
+    --color-board-bg-end: #2b5a87;
+    --color-board-label: #e9f1f9;
+
+    --color-water: #cfe4f5;
+    --color-water-border: #5a8fb8;
+
+    --color-ship: #4a5b6b;
+    --color-ship-border: #2f3a44;
+    --color-ship-placed: #9bb3c9;
+    --color-ship-placed-border: #7f95a8;
+
+    --color-hit: #c0392b;
+    --color-hit-border: #7b1e14;
+    --color-miss: #eef5fa;
+    --color-miss-dot: #6d7b89;
+
+    --color-preview-ok: #6fcf97;
+    --color-preview-ok-border: #2f9e5e;
+    --color-preview-bad: #eb5757;
+    --color-preview-bad-border: #a81f1f;
+
+    /* ---------- Fluid board sizing ----------
+       Cells and row/col labels shrink on narrow viewports so the 10x10 grid
+       never overflows. Pages can override --cell-size locally if needed. */
+    --cell-size: clamp(1.55rem, 4.5vmin, 2.4rem);
+    --cell-header: clamp(1rem, 3vmin, 1.5rem);
+    --cell-gap: 2px;
+}
+
+@media (max-width: 600px) {
+    :root {
+        --cell-size: clamp(1.35rem, 7.5vmin, 2rem);
+        --cell-header: clamp(0.9rem, 5vmin, 1.25rem);
+    }
+}

@@ -3,24 +3,29 @@
 
 <PageTitle>Battleship</PageTitle>
 
-<div class="menu-page">
-    <h1 class="menu-title">Battleship</h1>
-    <p class="menu-subtitle">A classic naval strategy duel. Deploy your fleet, then sink your opponent's.</p>
-
-    <div class="menu-list">
-        <button type="button" class="menu-item" @onclick='() => Nav.NavigateTo("/setup")'>
-            <span class="menu-item-title">Single Player <span class="menu-item-badge">vs AI</span></span>
-            <span class="menu-item-desc">Play a solo match against a computer opponent.</span>
-        </button>
-
-        <button type="button" class="menu-item" @onclick='() => Nav.NavigateTo("/lan")'>
-            <span class="menu-item-title">Host / Join LAN Game</span>
-            <span class="menu-item-desc">Face off against a friend on the same network.</span>
-        </button>
-
-        <button type="button" class="menu-item menu-item-secondary" @onclick='() => Nav.NavigateTo("/setup")'>
-            <span class="menu-item-title">Fleet Setup</span>
-            <span class="menu-item-desc">Try the deployment board on its own.</span>
-        </button>
+<MudStack Spacing="6" Class="mx-auto" Style="max-width: 560px;">
+    <div>
+        <MudText Typo="Typo.h3" Color="Color.Primary" GutterBottom="true">Battleship</MudText>
+        <MudText Typo="Typo.body1" Color="Color.Default">
+            A classic naval strategy duel. Deploy your fleet, then sink your opponent's.
+        </MudText>
     </div>
-</div>
+
+    <MudStack Spacing="3">
+        <MenuTile Icon="@Icons.Material.Filled.SmartToy"
+                  Title="Single Player"
+                  Caption="vs AI"
+                  Description="Play a solo match against a computer opponent."
+                  OnClick="@(() => Nav.NavigateTo("/setup"))" />
+
+        <MenuTile Icon="@Icons.Material.Filled.Wifi"
+                  Title="Host / Join LAN Game"
+                  Description="Face off against a friend on the same network."
+                  OnClick="@(() => Nav.NavigateTo("/lan"))" />
+
+        <MenuTile Icon="@Icons.Material.Filled.GridOn"
+                  Title="Fleet Setup"
+                  Description="Try the deployment board on its own."
+                  OnClick="@(() => Nav.NavigateTo("/setup"))" />
+    </MudStack>
+</MudStack>

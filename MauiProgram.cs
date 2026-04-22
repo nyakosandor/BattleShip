@@ -2,6 +2,7 @@
 using BattleShip.Core.Services;
 using BattleShip.LanServer;
 using Microsoft.Extensions.Logging;
+using MudBlazor.Services;
 
 namespace BattleShip.App
 {
@@ -18,6 +19,7 @@ namespace BattleShip.App
                 });
 
             builder.Services.AddMauiBlazorWebView();
+            builder.Services.AddMudServices();
 
             builder.Services.AddSingleton<IGameEngine, GameEngine>();
             builder.Services.AddSingleton<IFleetRandomizer, FleetRandomizer>();

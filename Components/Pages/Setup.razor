@@ -13,59 +13,85 @@
 
 <PageTitle>Fleet Setup</PageTitle>
 
-<div class="setup-page">
-    <div class="setup-header">
-        <h1>@Heading</h1>
-        <p class="subtitle">Pick a ship from the palette, then tap a square to drop its bow. Rotate the ship to switch between horizontal and vertical placement.</p>
+<MudStack Spacing="5">
+    <div>
+        <MudText Typo="Typo.h4" Color="Color.Primary" GutterBottom="true">@Heading</MudText>
+        <MudText Typo="Typo.body2" Color="Color.Default">
+            Pick a ship from the palette, then tap a square to drop its bow.
+            Rotate the ship to switch between horizontal and vertical placement.
+        </MudText>
     </div>
 
-    <div class="setup-body">
-        <div class="setup-board">
-            <BoardGrid Board="_board"
-                       PreviewCoordinates="_preview"
-                       PreviewValid="_previewValid"
-                       OnCellClick="HandleCellClick"
-                       OnCellEnter="HandleCellEnter"
-                       OnCellLeave="HandleCellLeave" />
+    <MudGrid Spacing="4">
+        <MudItem xs="12" md="8">
+            <MudStack Spacing="3" AlignItems="AlignItems.Center">
+                <BoardGrid Board="_board"
+                           PreviewCoordinates="_preview"
+                           PreviewValid="_previewValid"
+                           OnCellClick="HandleCellClick"
+                           OnCellEnter="HandleCellEnter"
+                           OnCellLeave="HandleCellLeave" />
 
-            <div class="setup-status">
                 @if (!string.IsNullOrEmpty(_statusMessage))
                 {
-                    <div class="alert @(_statusIsError ? "alert-danger" : "alert-info") py-2 mb-0">
+                    <MudAlert Severity="@(_statusIsError ? Severity.Error : Severity.Info)"
+                              Dense="true"
+                              Variant="Variant.Text"
+                              Class="w-100">
                         @_statusMessage
-                    </div>
+                    </MudAlert>
                 }
-            </div>
-        </div>
+            </MudStack>
+        </MudItem>
 
-        <div class="setup-sidebar">
-            <ShipPalette Orientation="_orientation"
-                         SelectedShipType="_selected"
-                         PlacedShipTypes="_placedTypes"
-                         OnSelect="HandleSelect"
-                         OnToggleOrientation="ToggleOrientation" />
+        <MudItem xs="12" md="4">
+            <MudStack Spacing="3">
+                <MudPaper Elevation="0" Outlined="true" Class="pa-4">
+                    <ShipPalette Orientation="_orientation"
+                                 SelectedShipType="_selected"
+                                 PlacedShipTypes="_placedTypes"
+                                 OnSelect="HandleSelect"
+                                 OnToggleOrientation="ToggleOrientation" />
+                </MudPaper>
 
-            <div class="setup-actions">
-                <button type="button" class="btn btn-primary w-100 mb-2" @onclick="AutoDeploy" disabled="@_submitting">
-                    Auto-Deploy
-                </button>
-                <button type="button" class="btn btn-outline-secondary w-100 mb-2" @onclick="ClearBoard" disabled="@_submitting">
-                    Clear Board
-                </button>
-                <button type="button"
-                        class="btn btn-success w-100"
-                        disabled="@(!AllShipsPlaced || _submitting)"
-                        @onclick="Ready">
-                    @ReadyButtonLabel
-                </button>
-            </div>
+                <MudStack Spacing="2">
+                    <MudButton Variant="Variant.Outlined"
+                               Color="Color.Primary"
+                               FullWidth="true"
+                               StartIcon="@Icons.Material.Filled.Shuffle"
+                               Disabled="_submitting"
+                               OnClick="AutoDeploy">
+                        Auto-Deploy
+                    </MudButton>
 
-            <div class="setup-help">
-                <strong>Tip:</strong> Click the orientation button (or a placed ship) to flip between horizontal and vertical.
-            </div>
-        </div>
-    </div>
-</div>
+                    <MudButton Variant="Variant.Outlined"
+                               Color="Color.Default"
+                               FullWidth="true"
+                               StartIcon="@Icons.Material.Filled.Refresh"
+                               Disabled="_submitting"
+                               OnClick="ClearBoard">
+                        Clear Board
+                    </MudButton>
+
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Success"
+                               FullWidth="true"
+                               Size="Size.Large"
+                               StartIcon="@Icons.Material.Filled.PlayArrow"
+                               Disabled="@(!AllShipsPlaced || _submitting)"
+                               OnClick="Ready">
+                        @ReadyButtonLabel
+                    </MudButton>
+                </MudStack>
+
+                <MudAlert Severity="Severity.Info" Dense="true" Variant="Variant.Text">
+                    <b>Tip:</b> Click the orientation button (or a placed ship)
+                    to flip between horizontal and vertical.
+                </MudAlert>
+            </MudStack>
+        </MudItem>
+    </MudGrid>
+</MudStack>
 
 @code {
     private const int DefaultHostPort = 5100;
@@ -121,7 +147,6 @@
     {
         _selected = Fleet.StandardComposition.First();
 
-        // Guest mode requires that the player has already connected on /lan.
         if (CurrentMode == SetupMode.LanGuest && !ClientState.IsConnected)
         {
             Nav.NavigateTo("/lan");
@@ -157,10 +182,7 @@
         _previewValid = Engine.ValidatePlacement(_board, type, coord, _orientation).Success;
     }
 
-    private void HandleCellLeave(Coordinate _)
-    {
-        ClearPreview();
-    }
+    private void HandleCellLeave(Coordinate _) => ClearPreview();
 
     private void HandleCellClick(Coordinate coord)
     {
@@ -301,10 +323,7 @@
         _placedTypes.Clear();
     }
 
-    private void ClearPreview()
-    {
-        _preview = null;
-    }
+    private void ClearPreview() => _preview = null;
 
     private void SetStatus(string message, bool isError)
     {

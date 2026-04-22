@@ -1,7 +1,7 @@
 @namespace BattleShip.App.Components.Game
 
 <div class="board-wrapper">
-    <div class="board-grid" style="grid-template-columns: 1.5rem repeat(@Board.Size, 2.4rem);">
+    <div class="board-grid" style="grid-template-columns: var(--cell-header) repeat(@Board.Size, var(--cell-size));">
         <div class="board-corner"></div>
         @for (int x = 0; x < Board.Size; x++)
         {

@@ -4,7 +4,7 @@
    Used by the LAN match screen where opponent ship positions are only partially known. *@
 
 <div class="board-wrapper">
-    <div class="board-grid" style="grid-template-columns: 1.5rem repeat(@Size, 2.4rem);">
+    <div class="board-grid" style="grid-template-columns: var(--cell-header) repeat(@Size, var(--cell-size));">
         <div class="board-corner"></div>
         @for (int x = 0; x < Size; x++)
         {

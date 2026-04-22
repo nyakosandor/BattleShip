@@ -7,56 +7,88 @@
 
 <PageTitle>LAN Game</PageTitle>
 
-<div class="lan-page">
-    <h1>Local Multiplayer</h1>
-    <p class="subtitle">Face off against a friend on the same network.</p>
-
-    <div class="lan-cards">
-        <button type="button" class="lan-card" @onclick='() => Nav.NavigateTo("/setup?mode=host")'>
-            <span class="lan-card-title">Host a Game</span>
-            <span class="lan-card-desc">Start a local server, deploy your fleet, and wait for a challenger to connect.</span>
-        </button>
-
-        <div class="lan-card lan-card-form">
-            <span class="lan-card-title">Join a Game</span>
-            <span class="lan-card-desc">Connect to a host's LAN server using their address.</span>
-
-            <EditForm Model="_form" OnValidSubmit="ConnectAsync" class="lan-join-form">
-                <DataAnnotationsValidator />
-
-                <label class="lan-field">
-                    <span>Host address</span>
-                    <InputText @bind-Value="_form.Address" placeholder="192.168.1.23" disabled="@_connecting" />
-                </label>
-
-                <label class="lan-field lan-field-port">
-                    <span>Port</span>
-                    <InputNumber @bind-Value="_form.Port" disabled="@_connecting" />
-                </label>
-
-                <label class="lan-field">
-                    <span>Your name</span>
-                    <InputText @bind-Value="_form.Name" placeholder="Challenger" disabled="@_connecting" />
-                </label>
-
-                <ValidationSummary class="lan-validation" />
-
-                @if (!string.IsNullOrEmpty(_errorMessage))
-                {
-                    <div class="alert alert-danger py-2">@_errorMessage</div>
-                }
-
-                <button type="submit" class="btn btn-primary w-100" disabled="@_connecting">
-                    @(_connecting ? "Connecting..." : "Connect")
-                </button>
-            </EditForm>
-        </div>
+<MudStack Spacing="6" Class="mx-auto" Style="max-width: 640px;">
+    <div>
+        <MudText Typo="Typo.h3" Color="Color.Primary" GutterBottom="true">Local Multiplayer</MudText>
+        <MudText Typo="Typo.body1" Color="Color.Default">
+            Face off against a friend on the same network.
+        </MudText>
     </div>
 
-    <button type="button" class="btn btn-link" @onclick='() => Nav.NavigateTo("/")'>
+    <MudStack Spacing="3">
+        <MenuTile Icon="@Icons.Material.Filled.CastConnected"
+                  Title="Host a Game"
+                  Description="Start a local server, deploy your fleet, and wait for a challenger to connect."
+                  OnClick="@(() => Nav.NavigateTo("/setup?mode=host"))" />
+
+        <MudPaper Elevation="0" Outlined="true" Class="pa-5">
+            <MudStack Spacing="3">
+                <div>
+                    <MudText Typo="Typo.h6">Join a Game</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Default">
+                        Connect to a host's LAN server using their address.
+                    </MudText>
+                </div>
+
+                <EditForm Model="_form" OnValidSubmit="ConnectAsync">
+                    <DataAnnotationsValidator />
+
+                    <MudStack Spacing="3">
+                        <MudGrid Spacing="3">
+                            <MudItem xs="12" sm="8">
+                                <MudTextField @bind-Value="_form.Address"
+                                              Label="Host address"
+                                              Placeholder="192.168.1.23"
+                                              For="@(() => _form.Address)"
+                                              Disabled="_connecting"
+                                              Variant="Variant.Outlined" />
+                            </MudItem>
+                            <MudItem xs="12" sm="4">
+                                <MudNumericField @bind-Value="_form.Port"
+                                                 Label="Port"
+                                                 Min="1" Max="65535"
+                                                 For="@(() => _form.Port)"
+                                                 Disabled="_connecting"
+                                                 Variant="Variant.Outlined" />
+                            </MudItem>
+                        </MudGrid>
+
+                        <MudTextField @bind-Value="_form.Name"
+                                      Label="Your name"
+                                      Placeholder="Challenger"
+                                      For="@(() => _form.Name)"
+                                      Disabled="_connecting"
+                                      Variant="Variant.Outlined" />
+
+                        @if (!string.IsNullOrEmpty(_errorMessage))
+                        {
+                            <MudAlert Severity="Severity.Error" Dense="true" Variant="Variant.Text">
+                                @_errorMessage
+                            </MudAlert>
+                        }
+
+                        <MudButton ButtonType="ButtonType.Submit"
+                                   Variant="Variant.Filled"
+                                   Color="Color.Primary"
+                                   FullWidth="true"
+                                   Size="Size.Large"
+                                   Disabled="_connecting">
+                            @(_connecting ? "Connecting..." : "Connect")
+                        </MudButton>
+                    </MudStack>
+                </EditForm>
+            </MudStack>
+        </MudPaper>
+    </MudStack>
+
+    <MudButton Variant="Variant.Text"
+               Color="Color.Primary"
+               StartIcon="@Icons.Material.Filled.ArrowBack"
+               OnClick="@(() => Nav.NavigateTo("/"))"
+               Class="align-self-start">
         Back to menu
-    </button>
-</div>
+    </MudButton>
+</MudStack>
 
 @code {
     private readonly JoinForm _form = new();

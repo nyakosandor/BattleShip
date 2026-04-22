@@ -1,0 +1,37 @@
+@namespace BattleShip.App.Components.Shared
+
+@* Chronological list of shot-log entries, styled as a subtle outlined card.
+   Entries is expected to be newest-first and is capped at MaxVisible rows. *@
+
+<MudPaper Elevation="0" Outlined="true" Class="pa-4">
+    <MudStack Spacing="2">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+            <MudText Typo="Typo.overline" Color="Color.Primary">Battle log</MudText>
+            @if (Entries.Count > 0)
+            {
+                <MudText Typo="Typo.caption" Color="Color.Default">
+                    @Entries.Count event@(Entries.Count == 1 ? "" : "s")
+                </MudText>
+            }
+        </MudStack>
+
+        @if (Entries.Count == 0)
+        {
+            <MudText Typo="Typo.body2" Color="Color.Default">No shots yet.</MudText>
+        }
+        else
+        {
+            <ol class="shot-log-list">
+                @foreach (var entry in Entries.Take(MaxVisible))
+                {
+                    <li>@entry</li>
+                }
+            </ol>
+        }
+    </MudStack>
+</MudPaper>
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<string> Entries { get; set; } = Array.Empty<string>();
+    [Parameter] public int MaxVisible { get; set; } = 8;
+}

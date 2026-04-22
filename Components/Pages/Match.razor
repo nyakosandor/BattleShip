@@ -14,93 +14,85 @@
 
 @if (_initError is not null)
 {
-    <div class="match-error">
-        <div class="alert alert-danger">@_initError</div>
-        <button type="button" class="btn btn-outline-primary" @onclick="ReturnToMenu">Back to main menu</button>
-    </div>
+    <MudStack Spacing="3" Class="mx-auto" Style="max-width: 520px;">
+        <MudAlert Severity="Severity.Error" Variant="Variant.Filled">@_initError</MudAlert>
+        <MudButton Variant="Variant.Outlined"
+                   Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.ArrowBack"
+                   OnClick="ReturnToMenu">
+            Back to main menu
+        </MudButton>
+    </MudStack>
 }
-else if (_state is null)
+else if (_projection is null)
 {
-    <div class="match-loading">
-        <p>Connecting to the match...</p>
-    </div>
+    <MudStack AlignItems="AlignItems.Center" Class="my-12" Spacing="3">
+        <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+        <MudText Typo="Typo.body1" Color="Color.Default">Connecting to the match...</MudText>
+    </MudStack>
 }
 else
 {
-    <div class="match-page">
-        <div class="match-header">
-            <h1>@StatusTitle</h1>
-            <p class="match-subtitle">@StatusSubtitle</p>
-
-            @if (!string.IsNullOrEmpty(_endpointBadge))
-            {
-                <div class="match-endpoint">@_endpointBadge</div>
-            }
+    <MudStack Spacing="5">
+        <div>
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="flex-wrap">
+                <MudText Typo="Typo.h4" Color="Color.Primary">@StatusTitle</MudText>
+                @if (!string.IsNullOrEmpty(_endpointBadge))
+                {
+                    <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Outlined">
+                        @_endpointBadge
+                    </MudChip>
+                }
+            </MudStack>
+            <MudText Typo="Typo.body2" Color="Color.Default">@StatusSubtitle</MudText>
         </div>
 
         @if (!string.IsNullOrEmpty(_actionError))
         {
-            <div class="alert alert-warning py-2">@_actionError</div>
+            <MudAlert Severity="Severity.Warning" Dense="true" Variant="Variant.Text">
+                @_actionError
+            </MudAlert>
         }
 
-        <div class="boards-row">
-            <div class="board-panel">
-                <h2 class="board-label">Enemy waters — @OpponentName</h2>
-                <StateBoardGrid Size="BoardSize"
-                                Hits="_opponentHits"
-                                Misses="_opponentMisses"
-                                ShipCells="_opponentVisibleShips"
-                                OnCellClick="HandleFireAsync" />
-                <div class="board-stats">
-                    Ships remaining:
-                    @(_opponentPublic?.ShipsRemaining ?? Fleet.StandardComposition.Count) /
-                    @Fleet.StandardComposition.Count
-                </div>
-            </div>
+        <MudGrid Spacing="4" Justify="Justify.Center">
+            <MudItem xs="12" md="6">
+                <MudStack Spacing="2" AlignItems="AlignItems.Center">
+                    <MudText Typo="Typo.overline" Color="Color.Primary">Enemy waters — @OpponentName</MudText>
+                    <StateBoardGrid Size="BoardSize"
+                                    Hits="_projection.OpponentHits"
+                                    Misses="_projection.OpponentMisses"
+                                    ShipCells="_projection.OpponentVisibleShips"
+                                    OnCellClick="HandleFireAsync" />
+                    <MudText Typo="Typo.caption" Color="Color.Default">
+                        Ships remaining: @(_projection.OpponentPublic?.ShipsRemaining ?? Fleet.StandardComposition.Count) / @Fleet.StandardComposition.Count
+                    </MudText>
+                </MudStack>
+            </MudItem>
 
-            <div class="board-panel">
-                <h2 class="board-label">Your fleet — @SelfName</h2>
-                <StateBoardGrid Size="BoardSize"
-                                Hits="_selfHits"
-                                Misses="_selfMisses"
-                                ShipCells="_selfShipCells" />
-                <div class="board-stats">
-                    Ships remaining:
-                    @(_selfPublic?.ShipsRemaining ?? Fleet.StandardComposition.Count) /
-                    @Fleet.StandardComposition.Count
-                </div>
-            </div>
-        </div>
+            <MudItem xs="12" md="6">
+                <MudStack Spacing="2" AlignItems="AlignItems.Center">
+                    <MudText Typo="Typo.overline" Color="Color.Primary">Your fleet — @SelfName</MudText>
+                    <StateBoardGrid Size="BoardSize"
+                                    Hits="_projection.SelfHits"
+                                    Misses="_projection.SelfMisses"
+                                    ShipCells="_projection.SelfShipCells" />
+                    <MudText Typo="Typo.caption" Color="Color.Default">
+                        Ships remaining: @(_projection.SelfPublic?.ShipsRemaining ?? Fleet.StandardComposition.Count) / @Fleet.StandardComposition.Count
+                    </MudText>
+                </MudStack>
+            </MudItem>
+        </MudGrid>
 
-        <div class="shot-log" aria-live="polite">
-            <h3>Log</h3>
-            @if (_log.Count == 0)
-            {
-                <p class="shot-log-empty">No shots fired yet.</p>
-            }
-            else
-            {
-                <ol>
-                    @foreach (var entry in _log.Take(8))
-                    {
-                        <li>@entry</li>
-                    }
-                </ol>
-            }
-        </div>
-    </div>
+        <ShotLogPaper Entries="_log" />
+    </MudStack>
 
-    @if (_state.Phase == GamePhase.Finished)
+    @if (_projection.State.Phase == GamePhase.Finished)
     {
-        <div class="endgame-overlay">
-            <div class="endgame-card">
-                <h2>@EndgameTitle</h2>
-                <p>@EndgameDetail</p>
-                <div class="endgame-actions">
-                    <button type="button" class="btn btn-primary" @onclick="ReturnToMenu">Main Menu</button>
-                </div>
-            </div>
-        </div>
+        <EndgameDialog Title="@EndgameTitle"
+                       Detail="@EndgameDetail"
+                       IsVictory="@(_projection.State.Winner == _client?.Role)">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="ReturnToMenu">Main Menu</MudButton>
+        </EndgameDialog>
     }
 }
 
@@ -111,33 +103,18 @@ else
     private static readonly TimeSpan NetworkForfeitThreshold = TimeSpan.FromSeconds(5);
 
     private readonly CancellationTokenSource _cts = new();
-    private Task? _pollLoop;
+    private readonly OpponentFireDiff _fireDiff = new();
+    private readonly List<string> _log = new();
 
+    private Task? _pollLoop;
     private ILanClient? _client;
-    private StateResponse? _state;
+    private MatchStateProjection? _projection;
     private string? _initError;
     private string? _actionError;
     private string? _endpointBadge;
 
-    // Cached projections over the most recent state so we don't recompute per render.
-    private PlayerPublicView? _selfPublic;
-    private PlayerPublicView? _opponentPublic;
-    private HashSet<Coordinate> _selfHits = new();
-    private HashSet<Coordinate> _selfMisses = new();
-    private HashSet<Coordinate> _selfShipCells = new();
-    private HashSet<Coordinate> _opponentHits = new();
-    private HashSet<Coordinate> _opponentMisses = new();
-    private HashSet<Coordinate> _opponentVisibleShips = new();
-
     private DateTime _lastSuccessfulPollUtc = DateTime.UtcNow;
     private bool _hostForfeitAlreadyHandled;
-
-    // Shot log plus diff baselines used to detect opponent fire between state polls.
-    private readonly List<string> _log = new();
-    private bool _logBaselineReady;
-    private HashSet<Coordinate> _prevSelfHits = new();
-    private HashSet<Coordinate> _prevSelfMisses = new();
-    private HashSet<ShipType> _prevSelfSunkTypes = new();
 
     protected override void OnInitialized()
     {
@@ -154,8 +131,6 @@ else
 
         _pollLoop = Task.Run(() => PollLoopAsync(_cts.Token));
     }
-
-    // ---------- Polling loop ----------
 
     private async Task PollLoopAsync(CancellationToken ct)
     {
@@ -176,8 +151,6 @@ else
             }
             else if (result.NetworkError)
             {
-                // The host's LocalLanClient should never hit NetworkError, but a guest's
-                // HTTP poll can: treat sustained failure past the 5s threshold as a forfeit.
                 var sinceOk = DateTime.UtcNow - _lastSuccessfulPollUtc;
                 if (sinceOk >= NetworkForfeitThreshold && !_hostForfeitAlreadyHandled)
                 {
@@ -199,7 +172,6 @@ else
                 });
             }
 
-            // Poll faster while it's the opponent's turn (or during setup), slower otherwise.
             var delay = ChoosePollInterval();
             try { await Task.Delay(delay, ct).ConfigureAwait(false); }
             catch (OperationCanceledException) { return; }
@@ -208,106 +180,32 @@ else
 
     private TimeSpan ChoosePollInterval()
     {
-        if (_state is null) return ActivePollInterval;
-        if (_state.Phase == GamePhase.Finished) return IdlePollInterval;
-        if (_state.Phase == GamePhase.InProgress)
+        var state = _projection?.State;
+        if (state is null) return ActivePollInterval;
+        if (state.Phase == GamePhase.Finished) return IdlePollInterval;
+        if (state.Phase == GamePhase.InProgress)
         {
-            return _state.Turn == _client!.Role ? IdlePollInterval : ActivePollInterval;
+            return state.Turn == _client!.Role ? IdlePollInterval : ActivePollInterval;
         }
-        // WaitingForClient / Deploying — poll at the active rate so we react as soon as the opponent connects/deploys.
         return ActivePollInterval;
     }
 
-    // ---------- State projection ----------
-
     private void ApplyState(StateResponse state)
     {
-        _state = state;
         _actionError = null;
+        _projection = MatchStateProjection.From(state, _client!.Role);
 
-        var role = _client!.Role;
-        _selfPublic = role == PlayerRole.Host ? state.Host : state.Guest;
-        _opponentPublic = role == PlayerRole.Host ? state.Guest : state.Host;
-
-        _selfHits = _selfPublic is null ? new() : ToSet(_selfPublic.Hits);
-        _selfMisses = _selfPublic is null ? new() : ToSet(_selfPublic.Misses);
-        _selfShipCells = state.Self is null ? new() : state.Self.Fleet.SelectMany(s => s.Coordinates).Select(c => c.ToDomain()).ToHashSet();
-
-        _opponentHits = _opponentPublic is null ? new() : ToSet(_opponentPublic.Hits);
-        _opponentMisses = _opponentPublic is null ? new() : ToSet(_opponentPublic.Misses);
-        // Only sunk opponent ships expose their coordinates; reveal them as ship tiles on the offense board.
-        _opponentVisibleShips = _opponentPublic is null
-            ? new()
-            : _opponentPublic.SunkShips.SelectMany(s => s.Coordinates).Select(c => c.ToDomain()).ToHashSet();
-
-        ReconcileOpponentFireLog();
-    }
-
-    private void ReconcileOpponentFireLog()
-    {
-        var currentSunkTypes = (_selfPublic?.SunkShips ?? Array.Empty<ShipDto>())
-            .Select(s => s.Type)
-            .ToHashSet();
-
-        if (_logBaselineReady)
+        foreach (var line in _fireDiff.Diff(_projection))
         {
-            // A sunk ship's cells also land in Hits, so suppress the per-cell hit line when a
-            // new sunk entry appears on the same turn to keep the log readable.
-            var sunkCellsJustRevealed = (_selfPublic?.SunkShips ?? Array.Empty<ShipDto>())
-                .Where(s => !_prevSelfSunkTypes.Contains(s.Type))
-                .SelectMany(s => s.Coordinates.Select(c => c.ToDomain()))
-                .ToHashSet();
-
-            foreach (var hit in _selfHits.Except(_prevSelfHits).OrderBy(c => c.Y).ThenBy(c => c.X))
-            {
-                if (sunkCellsJustRevealed.Contains(hit)) continue;
-                AppendLog($"Opponent hit your fleet at {Format(hit)}.");
-            }
-
-            foreach (var miss in _selfMisses.Except(_prevSelfMisses).OrderBy(c => c.Y).ThenBy(c => c.X))
-            {
-                AppendLog($"Opponent missed at {Format(miss)}.");
-            }
-
-            foreach (var type in currentSunkTypes.Except(_prevSelfSunkTypes))
-            {
-                AppendLog($"Opponent sank your {type.DisplayName()}.");
-            }
+            _log.Insert(0, line);
         }
-
-        _prevSelfHits = new HashSet<Coordinate>(_selfHits);
-        _prevSelfMisses = new HashSet<Coordinate>(_selfMisses);
-        _prevSelfSunkTypes = currentSunkTypes;
-        _logBaselineReady = true;
     }
-
-    private void AppendLog(string entry) => _log.Insert(0, entry);
-
-    private static string Format(Coordinate c) => $"{(char)('A' + c.X)}{c.Y + 1}";
-
-    private static string PlayerShotLogLine(FireResponse r)
-    {
-        var target = Format(new Coordinate(r.Target.X, r.Target.Y));
-        return r.Outcome switch
-        {
-            ShotOutcomeDto.Hit => $"You hit at {target}.",
-            ShotOutcomeDto.Sunk when r.ShipSunk is ShipType s => $"You sank the enemy {s.DisplayName()} at {target}.",
-            ShotOutcomeDto.Sunk => $"You sank an enemy ship at {target}.",
-            ShotOutcomeDto.Miss => $"You missed at {target}.",
-            _ => $"Invalid shot at {target}.",
-        };
-    }
-
-    private static HashSet<Coordinate> ToSet(IReadOnlyList<CoordinateDto> coords) =>
-        coords.Select(c => c.ToDomain()).ToHashSet();
-
-    // ---------- Player actions ----------
 
     private async Task HandleFireAsync(Coordinate coord)
     {
-        if (_client is null || _state is null) return;
-        if (_state.Phase != GamePhase.InProgress) return;
-        if (_state.Turn != _client.Role) return;
+        if (_client is null || _projection is null) return;
+        if (_projection.State.Phase != GamePhase.InProgress) return;
+        if (_projection.State.Turn != _client.Role) return;
 
         var result = await _client.FireAsync(new CoordinateDto(coord.X, coord.Y), _cts.Token).ConfigureAwait(true);
         if (!result.Success)
@@ -319,10 +217,9 @@ else
 
         if (result.Value is FireResponse fire)
         {
-            AppendLog(PlayerShotLogLine(fire));
+            _log.Insert(0, ShotLogFormatter.PlayerLanShot(fire));
         }
 
-        // Optimistic refresh: pull full state immediately so the UI reacts without waiting for the next tick.
         var refreshed = await _client.GetStateAsync(_cts.Token).ConfigureAwait(true);
         if (refreshed.Success && refreshed.Value is not null)
         {
@@ -332,66 +229,56 @@ else
         StateHasChanged();
     }
 
-    // ---------- Status strings ----------
-
-    private string OpponentName => _opponentPublic?.Name ?? "Opponent";
-    private string SelfName => _selfPublic?.Name ?? _client?.PlayerName ?? "You";
+    private string OpponentName => _projection?.OpponentPublic?.Name ?? "Opponent";
+    private string SelfName => _projection?.SelfPublic?.Name ?? _client?.PlayerName ?? "You";
 
     private string StatusTitle
     {
         get
         {
-            if (_state is null) return "Connecting...";
-            if (_state.Phase == GamePhase.Finished)
+            var state = _projection?.State;
+            if (state is null) return "Connecting...";
+            if (state.Phase == GamePhase.Finished)
             {
-                if (_state.EndReason == EndReason.Forfeit)
+                if (state.EndReason == EndReason.Forfeit)
                 {
-                    return _state.Winner == _client?.Role ? "Opponent disconnected" : "Forfeit";
+                    return state.Winner == _client?.Role ? "Opponent disconnected" : "Forfeit";
                 }
-                return _state.Winner == _client?.Role ? "Victory!" : "Defeat";
+                return state.Winner == _client?.Role ? "Victory!" : "Defeat";
             }
-            if (_state.Phase == GamePhase.WaitingForClient) return "Waiting for opponent";
-            if (_state.Phase == GamePhase.Deploying) return "Opponent is deploying";
-            return _state.Turn == _client?.Role ? "Your turn" : "Opponent's turn";
+            if (state.Phase == GamePhase.WaitingForClient) return "Waiting for opponent";
+            if (state.Phase == GamePhase.Deploying) return "Opponent is deploying";
+            return state.Turn == _client?.Role ? "Your turn" : "Opponent's turn";
         }
     }
 
-    private string StatusSubtitle
+    private string StatusSubtitle => _projection?.State.Phase switch
     {
-        get
-        {
-            if (_state is null) return string.Empty;
-            return _state.Phase switch
-            {
-                GamePhase.WaitingForClient => "Share your host address so a friend can join.",
-                GamePhase.Deploying => "They're placing their fleet. The match will start automatically.",
-                GamePhase.InProgress when _state.Turn == _client?.Role => "Click a cell on the enemy waters to fire.",
-                GamePhase.InProgress => "Hold tight — the opponent is taking aim.",
-                GamePhase.Finished => "Match complete.",
-                _ => string.Empty,
-            };
-        }
-    }
+        GamePhase.WaitingForClient => "Share your host address so a friend can join.",
+        GamePhase.Deploying => "They're placing their fleet. The match will start automatically.",
+        GamePhase.InProgress when _projection!.State.Turn == _client?.Role => "Click a cell on the enemy waters to fire.",
+        GamePhase.InProgress => "Hold tight — the opponent is taking aim.",
+        GamePhase.Finished => "Match complete.",
+        _ => string.Empty,
+    };
 
-    private string EndgameTitle => _state?.EndReason switch
+    private string EndgameTitle => _projection?.State.EndReason switch
     {
-        EndReason.Forfeit when _state.Winner == _client?.Role => "Opponent Disconnected",
+        EndReason.Forfeit when _projection!.State.Winner == _client?.Role => "Opponent Disconnected",
         EndReason.Forfeit => "Match Forfeited",
-        EndReason.FleetDestroyed when _state.Winner == _client?.Role => "Victory!",
+        EndReason.FleetDestroyed when _projection!.State.Winner == _client?.Role => "Victory!",
         EndReason.FleetDestroyed => "Defeat",
         _ => "Match complete",
     };
 
-    private string EndgameDetail => _state?.EndReason switch
+    private string EndgameDetail => _projection?.State.EndReason switch
     {
-        EndReason.Forfeit when _state.Winner == _client?.Role => "Your opponent left the match. The win is yours.",
+        EndReason.Forfeit when _projection!.State.Winner == _client?.Role => "Your opponent left the match. The win is yours.",
         EndReason.Forfeit => "You forfeited the match.",
-        EndReason.FleetDestroyed when _state.Winner == _client?.Role => "You sank the entire enemy fleet.",
+        EndReason.FleetDestroyed when _projection!.State.Winner == _client?.Role => "You sank the entire enemy fleet.",
         EndReason.FleetDestroyed => "Your fleet has been destroyed.",
         _ => string.Empty,
     };
-
-    // ---------- Teardown ----------
 
     private async Task ReturnToMenu()
     {
@@ -399,10 +286,7 @@ else
         Nav.NavigateTo("/");
     }
 
-    public async ValueTask DisposeAsync()
-    {
-        await TeardownAsync();
-    }
+    public async ValueTask DisposeAsync() => await TeardownAsync();
 
     private async Task TeardownAsync()
     {
@@ -416,7 +300,6 @@ else
 
         await ClientState.DisposeAndClearAsync();
 
-        // Host owns the server; stop it so the port is released and any guest poll times out.
         if (LanHost.IsRunning)
         {
             try { await LanHost.StopAsync().ConfigureAwait(false); }

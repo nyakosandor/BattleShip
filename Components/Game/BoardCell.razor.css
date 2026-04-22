@@ -1,8 +1,8 @@
 .board-cell {
-    width: 2.4rem;
-    height: 2.4rem;
+    width: var(--cell-size);
+    height: var(--cell-size);
     padding: 0;
-    border: 1px solid #5a8fb8;
+    border: 1px solid var(--color-water-border);
     border-radius: 2px;
     cursor: pointer;
     transition: transform 0.05s ease, background-color 0.1s ease;
@@ -14,35 +14,35 @@
 }
 
 .board-cell:focus-visible {
-    outline: 2px solid #ffbf00;
+    outline: 2px solid var(--color-accent);
     outline-offset: 1px;
 }
 
 .cell-empty {
-    background-color: #cfe4f5;
+    background-color: var(--color-water);
 }
 
 .cell-ship {
-    background-color: #4a5b6b;
-    border-color: #2f3a44;
+    background-color: var(--color-ship);
+    border-color: var(--color-ship-border);
 }
 
 .cell-hit {
-    background-color: #c0392b;
-    border-color: #7b1e14;
+    background-color: var(--color-hit);
+    border-color: var(--color-hit-border);
 }
 
 .cell-miss {
-    background-color: #eef5fa;
-    background-image: radial-gradient(circle, #6d7b89 0 20%, transparent 22%);
+    background-color: var(--color-miss);
+    background-image: radial-gradient(circle, var(--color-miss-dot) 0 20%, transparent 22%);
 }
 
 .cell-preview-ok {
-    background-color: #6fcf97;
-    border-color: #2f9e5e;
+    background-color: var(--color-preview-ok);
+    border-color: var(--color-preview-ok-border);
 }
 
 .cell-preview-bad {
-    background-color: #eb5757;
-    border-color: #a81f1f;
+    background-color: var(--color-preview-bad);
+    border-color: var(--color-preview-bad-border);
 }

@@ -12,70 +12,67 @@
 
 @if (_playerBoard is null || _aiBoard is null)
 {
-    <p>Preparing your fleet...</p>
+    <MudStack AlignItems="AlignItems.Center" Class="my-12" Spacing="3">
+        <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+        <MudText Typo="Typo.body1" Color="Color.Default">Preparing your fleet...</MudText>
+    </MudStack>
 }
 else
 {
-    <div class="play-page">
-        <div class="play-header">
-            <h1>@StatusTitle</h1>
-            <p class="play-subtitle">@StatusSubtitle</p>
+    <MudStack Spacing="5">
+        <div>
+            <MudText Typo="Typo.h4" Color="Color.Primary">@StatusTitle</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Default">@StatusSubtitle</MudText>
         </div>
 
-        <div class="boards-row">
-            <div class="board-panel">
-                <h2 class="board-label">Enemy waters</h2>
-                <BoardGrid Board="_aiBoard"
-                           HideShips="true"
-                           OnCellClick="HandlePlayerShot" />
-                <div class="board-stats">
-                    Ships remaining: @ShipsRemaining(_aiBoard) / @Fleet.StandardComposition.Count
-                </div>
-            </div>
+        <MudGrid Spacing="4" Justify="Justify.Center">
+            <MudItem xs="12" md="6">
+                <MudStack Spacing="2" AlignItems="AlignItems.Center">
+                    <MudText Typo="Typo.overline" Color="Color.Primary">Enemy waters</MudText>
+                    <BoardGrid Board="_aiBoard"
+                               HideShips="true"
+                               OnCellClick="HandlePlayerShot" />
+                    <MudText Typo="Typo.caption" Color="Color.Default">
+                        Ships remaining: @ShipsRemaining(_aiBoard) / @Fleet.StandardComposition.Count
+                    </MudText>
+                </MudStack>
+            </MudItem>
 
-            <div class="board-panel">
-                <h2 class="board-label">Your fleet</h2>
-                <BoardGrid Board="_playerBoard" />
-                <div class="board-stats">
-                    Ships remaining: @ShipsRemaining(_playerBoard) / @Fleet.StandardComposition.Count
-                </div>
-            </div>
-        </div>
+            <MudItem xs="12" md="6">
+                <MudStack Spacing="2" AlignItems="AlignItems.Center">
+                    <MudText Typo="Typo.overline" Color="Color.Primary">Your fleet</MudText>
+                    <BoardGrid Board="_playerBoard" />
+                    <MudText Typo="Typo.caption" Color="Color.Default">
+                        Ships remaining: @ShipsRemaining(_playerBoard) / @Fleet.StandardComposition.Count
+                    </MudText>
+                </MudStack>
+            </MudItem>
+        </MudGrid>
 
         @if (!string.IsNullOrEmpty(_sunkMessage))
         {
-            <div class="sunk-banner @(_sunkByPlayer ? "sunk-enemy" : "sunk-friendly")">
+            <MudAlert Severity="@(_sunkByPlayer ? Severity.Success : Severity.Error)"
+                      Variant="Variant.Filled"
+                      Dense="true"
+                      Class="mx-auto"
+                      Style="max-width: 480px;">
                 @_sunkMessage
-            </div>
+            </MudAlert>
         }
 
-        <div class="shot-log" aria-live="polite">
-            <h3>Log</h3>
-            <ol>
-                @foreach (var entry in _log.Take(8))
-                {
-                    <li>@entry</li>
-                }
-            </ol>
-        </div>
-    </div>
+        <ShotLogPaper Entries="_log" />
+    </MudStack>
 
     @if (_winner is not null)
     {
-        <div class="endgame-overlay">
-            <div class="endgame-card">
-                <h2>@(_winner == Winner.Player ? "Victory!" : "Defeat")</h2>
-                <p>
-                    @(_winner == Winner.Player
-                        ? "You sank the enemy fleet."
-                        : "Your fleet has been destroyed.")
-                </p>
-                <div class="endgame-actions">
-                    <button type="button" class="btn btn-primary" @onclick="PlayAgain">Play Again</button>
-                    <button type="button" class="btn btn-outline-secondary" @onclick="BackToMenu">Main Menu</button>
-                </div>
-            </div>
-        </div>
+        <EndgameDialog Title="@(_winner == Winner.Player ? "Victory!" : "Defeat")"
+                       Detail="@(_winner == Winner.Player
+                           ? "You sank the enemy fleet."
+                           : "Your fleet has been destroyed.")"
+                       IsVictory="@(_winner == Winner.Player)">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="PlayAgain">Play Again</MudButton>
+            <MudButton Variant="Variant.Outlined" Color="Color.Default" OnClick="BackToMenu">Main Menu</MudButton>
+        </EndgameDialog>
     }
 }
 
@@ -139,8 +136,7 @@ else
                 ? "Click a square on the enemy waters to fire."
                 : "Waiting on enemy fire.";
 
-    private static int ShipsRemaining(Board board) =>
-        board.Ships.Count(s => !s.IsSunk);
+    private static int ShipsRemaining(Board board) => board.Ships.Count(s => !s.IsSunk);
 
     private async Task HandlePlayerShot(Coordinate coord)
     {
@@ -150,13 +146,9 @@ else
         if (_aiBoard is null) return;
 
         var result = Engine.ProcessShot(_aiBoard, coord);
+        if (result.Outcome == ShotOutcome.Invalid) return;
 
-        if (result.Outcome == ShotOutcome.Invalid)
-        {
-            return;
-        }
-
-        AppendLog(PlayerShotLogLine(result));
+        _log.Insert(0, ShotLogFormatter.PlayerShot(result));
 
         if (result.Outcome == ShotOutcome.Sunk && result.ShipHit is Ship sunk)
         {
@@ -166,7 +158,7 @@ else
         if (result.FleetDestroyed)
         {
             _winner = Winner.Player;
-            AppendLog("All enemy ships destroyed.");
+            _log.Insert(0, "All enemy ships destroyed.");
             return;
         }
 
@@ -198,7 +190,7 @@ else
         var result = Engine.ProcessShot(_playerBoard, shot);
         _ai.RegisterResult(result);
 
-        AppendLog(AiShotLogLine(result));
+        _log.Insert(0, ShotLogFormatter.AiShot(result));
 
         if (result.Outcome == ShotOutcome.Sunk && result.ShipHit is Ship sunk)
         {
@@ -208,32 +200,12 @@ else
         if (result.FleetDestroyed)
         {
             _winner = Winner.Ai;
-            AppendLog("Your fleet has been destroyed.");
+            _log.Insert(0, "Your fleet has been destroyed.");
             return;
         }
 
         _turn = Turn.Player;
     }
-
-    private void AppendLog(string entry) => _log.Insert(0, entry);
-
-    private static string PlayerShotLogLine(ShotResult r) => r.Outcome switch
-    {
-        ShotOutcome.Hit => $"You hit at {Format(r.Coordinate)}.",
-        ShotOutcome.Sunk => $"You sank the enemy {r.ShipHit?.Type.DisplayName()} at {Format(r.Coordinate)}.",
-        ShotOutcome.Miss => $"You missed at {Format(r.Coordinate)}.",
-        _ => $"Invalid shot at {Format(r.Coordinate)}.",
-    };
-
-    private static string AiShotLogLine(ShotResult r) => r.Outcome switch
-    {
-        ShotOutcome.Hit => $"Enemy hit at {Format(r.Coordinate)}.",
-        ShotOutcome.Sunk => $"Enemy sank your {r.ShipHit?.Type.DisplayName()} at {Format(r.Coordinate)}.",
-        ShotOutcome.Miss => $"Enemy missed at {Format(r.Coordinate)}.",
-        _ => $"Enemy fired invalidly at {Format(r.Coordinate)}.",
-    };
-
-    private static string Format(Coordinate c) => $"{(char)('A' + c.X)}{c.Y + 1}";
 
     private void ShowSunk(string message, bool byPlayer)
     {
