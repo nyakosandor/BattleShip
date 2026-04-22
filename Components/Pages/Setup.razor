@@ -1,5 +1,6 @@
 @page "/setup"
 @using BattleShip.App.Services
+@using Microsoft.AspNetCore.Components
 @inject IGameEngine Engine
 @inject IFleetRandomizer Randomizer
 @inject GameHandoff Handoff
@@ -9,7 +10,7 @@
 
 <div class="setup-page">
     <div class="setup-header">
-        <h1>Deploy your fleet</h1>
+        <h1>@Heading</h1>
         <p class="subtitle">Pick a ship from the palette, then tap a square to drop its bow. Rotate the ship to switch between horizontal and vertical placement.</p>
     </div>
 
@@ -50,7 +51,7 @@
                         class="btn btn-success w-100"
                         disabled="@(!AllShipsPlaced)"
                         @onclick="Ready">
-                    Ready (@_board.Ships.Count / @Fleet.StandardComposition.Count)
+                    @ReadyLabel (@_board.Ships.Count / @Fleet.StandardComposition.Count)
                 </button>
             </div>
 
@@ -62,6 +63,8 @@
 </div>
 
 @code {
+    [SupplyParameterFromQuery] public string? Mode { get; set; }
+
     private Board _board = new();
     private Orientation _orientation = Orientation.Horizontal;
     private ShipType? _selected;
@@ -72,6 +75,10 @@
 
     private string? _statusMessage;
     private bool _statusIsError;
+
+    private bool IsHostMode => string.Equals(Mode, "host", StringComparison.OrdinalIgnoreCase);
+    private string Heading => IsHostMode ? "Deploy your fleet (LAN Host)" : "Deploy your fleet";
+    private string ReadyLabel => IsHostMode ? "Start Server" : "Ready";
 
     protected override void OnInitialized()
     {
@@ -172,7 +179,7 @@
     {
         if (!AllShipsPlaced) return;
         Handoff.Submit(_board);
-        Nav.NavigateTo("/play");
+        Nav.NavigateTo(IsHostMode ? "/host" : "/play");
     }
 
     private void ClearBoardState()

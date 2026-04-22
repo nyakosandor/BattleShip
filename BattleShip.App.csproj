@@ -49,7 +49,7 @@
 
         <!-- The SDK globs sources from the project directory; sibling projects live under the same repo root,
              so exclude their folders to prevent duplicate compilation. -->
-        <DefaultItemExcludes>$(DefaultItemExcludes);BattleShip.Core\**;BattleShip.Tests\**</DefaultItemExcludes>
+        <DefaultItemExcludes>$(DefaultItemExcludes);BattleShip.Core\**;BattleShip.LanServer\**;BattleShip.Tests\**</DefaultItemExcludes>
     </PropertyGroup>
 
     <ItemGroup>
@@ -78,6 +78,7 @@
 
     <ItemGroup>
         <ProjectReference Include="BattleShip.Core\BattleShip.Core.csproj" />
+        <ProjectReference Include="BattleShip.LanServer\BattleShip.LanServer.csproj" />
     </ItemGroup>
 
 </Project>

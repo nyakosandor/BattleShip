@@ -1,0 +1,85 @@
+.host-page {
+    max-width: 720px;
+}
+
+.host-page h1 {
+    color: #1e3f66;
+}
+
+.subtitle {
+    color: #556677;
+    margin-bottom: 1.25rem;
+}
+
+.host-panel {
+    background: #f5f8fb;
+    border: 1px solid #d6dee7;
+    border-radius: 10px;
+    padding: 1.25rem 1.5rem;
+}
+
+.host-label {
+    font-size: 0.95rem;
+    color: #1b6ec2;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    margin-bottom: 0.75rem;
+}
+
+.host-info {
+    display: grid;
+    grid-template-columns: 8rem 1fr;
+    row-gap: 0.35rem;
+    column-gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+    .host-info dt {
+        color: #556677;
+        font-weight: 500;
+    }
+
+    .host-info dd {
+        margin: 0;
+        color: #24364a;
+    }
+
+    .host-info code {
+        background: #ffffff;
+        border: 1px solid #d6dee7;
+        border-radius: 4px;
+        padding: 0.1rem 0.35rem;
+    }
+
+.host-actions {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.host-help {
+    background: #ffffff;
+    border: 1px solid #d6dee7;
+    border-radius: 8px;
+    padding: 0.5rem 0.85rem;
+    font-size: 0.85rem;
+    color: #33475b;
+}
+
+    .host-help summary {
+        cursor: pointer;
+        font-weight: 600;
+        color: #1e3f66;
+    }
+
+    .host-help ul {
+        margin: 0.5rem 0 0;
+        padding-left: 1.25rem;
+    }
+
+    .host-help code {
+        background: #eef2f7;
+        border-radius: 3px;
+        padding: 0.05rem 0.3rem;
+    }

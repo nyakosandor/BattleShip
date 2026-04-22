@@ -3,26 +3,23 @@
 
 <PageTitle>LAN Game</PageTitle>
 
-<div class="coming-soon">
-    <h1>Host / Join LAN Game</h1>
-    <p>LAN multiplayer is coming in a later phase. For now, set up your fleet and play against the AI.</p>
-    <button type="button" class="btn btn-primary" @onclick='() => Nav.NavigateTo("/")'>
+<div class="lan-page">
+    <h1>Local Multiplayer</h1>
+    <p class="subtitle">Face off against a friend on the same network.</p>
+
+    <div class="lan-cards">
+        <button type="button" class="lan-card" @onclick='() => Nav.NavigateTo("/setup?mode=host")'>
+            <span class="lan-card-title">Host a Game</span>
+            <span class="lan-card-desc">Start a local server, deploy your fleet, and wait for a challenger to connect.</span>
+        </button>
+
+        <button type="button" class="lan-card lan-card-disabled" disabled>
+            <span class="lan-card-title">Join a Game <span class="lan-card-badge">soon</span></span>
+            <span class="lan-card-desc">Connect to a host's LAN server. Arriving in Phase 5.</span>
+        </button>
+    </div>
+
+    <button type="button" class="btn btn-link" @onclick='() => Nav.NavigateTo("/")'>
         Back to menu
     </button>
 </div>
-
-<style>
-    .coming-soon {
-        max-width: 520px;
-        padding-top: 1rem;
-    }
-
-    .coming-soon h1 {
-        color: #1e3f66;
-    }
-
-    .coming-soon p {
-        color: #556677;
-        margin-bottom: 1.5rem;
-    }
-</style>

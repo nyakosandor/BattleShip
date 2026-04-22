@@ -1,5 +1,6 @@
 ﻿using BattleShip.App.Services;
 using BattleShip.Core.Services;
+using BattleShip.LanServer;
 using Microsoft.Extensions.Logging;
 
 namespace BattleShip.App
@@ -22,6 +23,7 @@ namespace BattleShip.App
             builder.Services.AddSingleton<IFleetRandomizer, FleetRandomizer>();
             builder.Services.AddSingleton<IAiPlayerFactory, HuntTargetAiFactory>();
             builder.Services.AddSingleton<GameHandoff>();
+            builder.Services.AddSingleton<ILanHost, LanHost>();
 
 #if DEBUG
     		builder.Services.AddBlazorWebViewDeveloperTools();

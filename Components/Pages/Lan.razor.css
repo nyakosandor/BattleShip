@@ -1,0 +1,66 @@
+.lan-page {
+    max-width: 640px;
+    padding-top: 1rem;
+}
+
+.lan-page h1 {
+    color: #1e3f66;
+}
+
+.lan-page .subtitle {
+    color: #556677;
+    margin-bottom: 1.5rem;
+}
+
+.lan-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.lan-card {
+    display: flex;
+    flex-direction: column;
+    text-align: left;
+    padding: 1rem 1.25rem;
+    border: 1px solid #d6dee7;
+    border-radius: 10px;
+    background: #ffffff;
+    cursor: pointer;
+    transition: transform 0.08s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+    .lan-card:hover:not(:disabled) {
+        transform: translateY(-1px);
+        border-color: #1b6ec2;
+        box-shadow: 0 4px 10px rgba(27, 110, 194, 0.18);
+    }
+
+.lan-card-disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.lan-card-title {
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: #1e3f66;
+    margin-bottom: 0.15rem;
+}
+
+.lan-card-badge {
+    font-size: 0.7rem;
+    color: #8f6d1e;
+    background: #fff3c4;
+    padding: 0.1rem 0.4rem;
+    border-radius: 999px;
+    margin-left: 0.4rem;
+    font-weight: 600;
+    vertical-align: middle;
+}
+
+.lan-card-desc {
+    color: #6d7b89;
+    font-size: 0.875rem;
+}
