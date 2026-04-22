@@ -49,8 +49,7 @@ public sealed class LanHost : ILanHost
             session.RegisterHost(hostName, hostBoard);
             session.StateChanged += RaiseStateChanged;
 
-            var listener = new HttpListener();
-            string bound = BindListener(listener, port);
+            var (listener, bound) = BindListener(port);
 
             _session = session;
             _listener = listener;
@@ -293,27 +292,28 @@ public sealed class LanHost : ILanHost
         return token.Length == 0 ? null : token.ToString();
     }
 
-    private static string BindListener(HttpListener listener, int port)
+    private static (HttpListener listener, string bound) BindListener(int port)
     {
         // Prefer binding to all interfaces (so LAN clients can reach us); fall back to
-        // localhost-only when URL ACLs aren't registered for the current user.
-        var publicPrefix = $"http://+:{port}/";
-        var localPrefix = $"http://localhost:{port}/";
-
-        listener.Prefixes.Clear();
-        listener.Prefixes.Add(publicPrefix);
+        // localhost-only when URL ACLs aren't registered for the current user. Each
+        // attempt needs its own HttpListener because Start() disposes the instance on
+        // failure.
+        var publicListener = new HttpListener();
+        publicListener.Prefixes.Add($"http://+:{port}/");
         try
         {
-            listener.Start();
-            return $"http://+:{port}";
+            publicListener.Start();
+            return (publicListener, $"http://+:{port}");
         }
         catch (HttpListenerException)
         {
-            listener.Prefixes.Clear();
-            listener.Prefixes.Add(localPrefix);
-            listener.Start();
-            return $"http://localhost:{port}";
+            try { publicListener.Close(); } catch { }
         }
+
+        var localListener = new HttpListener();
+        localListener.Prefixes.Add($"http://localhost:{port}/");
+        localListener.Start();
+        return (localListener, $"http://localhost:{port}");
     }
 
     private static string? GetLanAddress(int port)
