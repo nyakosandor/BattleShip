@@ -1,6 +1,8 @@
 @page "/setup"
+@using BattleShip.App.Services
 @inject IGameEngine Engine
 @inject IFleetRandomizer Randomizer
+@inject GameHandoff Handoff
 @inject NavigationManager Nav
 
 <PageTitle>Fleet Setup</PageTitle>
@@ -168,8 +170,9 @@
 
     private void Ready()
     {
-        // Phase 3 will wire this up to actual gameplay. For now, return to menu.
-        Nav.NavigateTo("/");
+        if (!AllShipsPlaced) return;
+        Handoff.Submit(_board);
+        Nav.NavigateTo("/play");
     }
 
     private void ClearBoardState()
